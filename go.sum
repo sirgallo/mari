@@ -1,0 +1,4 @@
+github.com/sirgallo/utils v0.1.8 h1:3JtNjDD2PoTV66xraivHT2CX6G6j4jZa7FsHPrf3G8o=
+github.com/sirgallo/utils v0.1.8/go.mod h1:tleQ8/sC0WpcVgbQ6EehmbcC69HnYtIKIg0tObuzOH0=
+golang.org/x/sys v0.14.0 h1:Vz7Qs629MkJkGyHxUlRHizWJRG2j8fbQKjELVSNhy7Q=
+golang.org/x/sys v0.14.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
