@@ -136,9 +136,11 @@ func TestMariConcurrentOperations(t *testing.T) {
 				isSorted := IsSorted(kvPairs)
 				if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
 			}()
-
-			iterWG.Wait()
 		}
+
+		iterWG.Wait()
+
+		t.Log("total elements returned:", totalElements)
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {
