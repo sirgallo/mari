@@ -38,7 +38,7 @@ func (mmcMap *Mari) Range(startKey, endKey []byte, minVersion *uint64) ([]*KeyVa
 // rangeRecursive
 //	Limit the indexes to check in the range at level 0, and then recursively traverse the paths between the start and end index.
 //	On the start key path, continue to use the start index to check the level to see which index forward should be recursively checked.
-//  The opposite is done for the end key path.
+//	The opposite is done for the end key path.
 func (mmcMap *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, startKey, endKey []byte, level int) ([]*KeyValuePair, error) {
 	genKeyValPair := func(node *MariINode) *KeyValuePair {
 		kvPair := &KeyValuePair {
