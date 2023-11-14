@@ -9,7 +9,7 @@ import "unsafe"
 //============================================= Mari Operations
 
 
-// Put inserts or updates key-value pair into the hash array mapped trie.
+// Put inserts or updates key-value pair into the ordered array mapped trie.
 //	The operation begins at the root of the trie and traverses through the tree until the correct location is found, copying the entire path.
 //	If the operation fails, the copied and modified path is discarded and the operation retries back at the root until completed.
 //	The operation begins at the latest known version of root, read from the metadata in the memory map. The version of the copy is incremented
@@ -192,8 +192,8 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 }
 
 // Get
-//	Attempts to retrieve the value for a key within the hash array mapped trie.
-//	It gets the latest version of the hash array mapped trie and starts from that offset in the mem-map.
+//	Attempts to retrieve the value for a key within the ordered array mapped trie.
+//	It gets the latest version of the ordered array mapped trie and starts from that offset in the mem-map.
 //	The operation begins at the root of the trie and traverses down the path to the key.
 //	Get is concurrent since it will perform the operation on an existing path, so new paths can be written at the same time with new versions.
 func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
@@ -213,7 +213,7 @@ func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
 }
 
 // getRecursive
-//	Attempts to recursively retrieve a value for a given key within the hash array mapped trie.
+//	Attempts to recursively retrieve a value for a given key within the ordered array mapped trie.
 //	For each node traversed to at each level the operation travels to, the sparse index is calculated for the hashed key.
 //	If the bit is not set in the bitmap, return nil since the key has not been inserted yet into the trie.
 //	Otherwise, determine the position in the child node array for the sparse index.
@@ -255,7 +255,7 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int) 
 	}
 }
 
-// Delete attempts to delete a key-value pair within the hash array mapped trie.
+// Delete attempts to delete a key-value pair within the ordered array mapped trie.
 //	It starts at the root of the trie and recurses down the path to the key to be deleted.
 //	It first loads in the current metadata, and starts at the latest version of the root.
 //	The operation creates an entire, in-memory copy of the path down to the key, where if the metadata hasn't changed during the copy, will get exclusive
@@ -307,7 +307,7 @@ func (mariInst *Mari) Delete(key []byte) (bool, error) {
 
 // deleteRecursive
 //	Attempts to recursively move down the path of the trie to the key-value pair to be deleted.
-//	The hash for the key is calculated, the sparse index in the bitmap is determined for the given level, and a copy of the current node is created to be modifed.
+//	The byte index for the key is calculated, the sparse index in the bitmap is determined for the given level, and a copy of the current node is created to be modifed.
 //	If the bit in the bitmap is not set, the key doesn't exist so truthy is returned since there is nothing to delete and the operation completes.
 //	If the bit is set, the child node for the position within the child node array is found.
 //	If the child node is a leaf node and the key of the child node is equal to the key of the key to delete, the copy is modified to update the bitmap and shrink the table and remove the given node.

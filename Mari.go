@@ -9,10 +9,10 @@ import "github.com/sirgallo/utils"
 //============================================= Mari
 
 
-// Open initializes a new mmcmap
+// Open initializes Mari
 //	This will create the memory mapped file or read it in if it already exists.
 //	Then, the meta data is initialized and written to the first 0-23 bytes in the memory map.
-//	An initial root MariNode will also be written to the memory map as well.
+//	An initial root MariINode will also be written to the memory map as well.
 func Open(opts MariOpts) (*Mari, error) {
 	np := newMariNodePool(100000)	// let's initialize with 100,000 pre-allocated nodes
 
@@ -43,7 +43,7 @@ func Open(opts MariOpts) (*Mari, error) {
 }
 
 // Close
-//	Close the mmcmap, unmapping the file from memory and closing the file.
+//	Close Mari, unmapping the file from memory and closing the file.
 func (mariInst *Mari) Close() error {
 	if ! mariInst.Opened { return nil }
 	mariInst.Opened = false
@@ -74,7 +74,7 @@ func (mariInst *Mari) FileSize() (int, error) {
 }
 
 // Remove
-//	Close the Mari and remove the source file.
+//	Close Mari and remove the source file.
 func (mariInst *Mari) Remove() error {
 	closeErr := mariInst.Close()
 	if closeErr != nil { return closeErr }

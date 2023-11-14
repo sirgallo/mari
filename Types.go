@@ -17,9 +17,9 @@ type MariOpts struct {
 
 // MariMetaData contains information related to where the root is located in the mem map and the version.
 type MariMetaData struct {
-	// Version: a tag for Copy-on-Write indicating the version of the Mari
+	// Version: a tag for Copy-on-Write indicating the version of Mari
 	Version uint64
-	// RootOffset: the offset of the latest version root node in the mmcmap
+	// RootOffset: the offset of the latest version root node in Mari
 	RootOffset uint64
 	// NextStartOffset: the offset where the last node in the mmap is located
 	NextStartOffset uint64
@@ -67,7 +67,7 @@ type KeyValuePair struct {
 	Value []byte
 }
 
-// Mari contains the memory mapped buffer for the mmcmap, as well as all metadata for operations to occur
+// Mari contains the memory mapped buffer for Mari, as well as all metadata for operations to occur
 type Mari struct {
 	// Filepath: path to the Mari file
 	Filepath string
@@ -89,7 +89,7 @@ type Mari struct {
 	NodePool *MariNodePool
 }
 
-// MariNodePool contains pre-allocated mmcmap nodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op
+// MariNodePool contains pre-allocated MariINodes/MariLNodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op
 type MariNodePool struct {
 	// MaxSize: the max size for the node pool
 	MaxSize int64
@@ -133,7 +133,7 @@ const (
 	BitmapSize = 4
 	// Size of child pointers, where the pointers are uint64 offsets in the memory map
 	NodeChildPtrSize = 8
-	// Offset for the first version of root on mmcmap initialization
+	// Offset for the first version of root on Mari initialization
 	InitRootOffset = 24
 	// 1 GB MaxResize
 	MaxResize = 1000000000

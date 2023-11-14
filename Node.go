@@ -77,13 +77,13 @@ func (mariInst *Mari) initRoot() (uint64, error) {
 }
 
 // loadNodeFromPointer
-//	Load a mmcmap node from an unsafe pointer.
+//	Load Mari node from an unsafe pointer.
 func loadINodeFromPointer(ptr *unsafe.Pointer) *MariINode {
 	return (*MariINode)(atomic.LoadPointer(ptr))
 }
 
 // newInternalNode
-//	Creates a new internal node in the hash array mapped trie, which is essentially a branch node that contains pointers to child nodes.
+//	Creates a new internal node in the ordered array mapped trie, which is essentially a branch node that contains pointers to child nodes.
 func (mariInst *Mari) newInternalNode(version uint64) *MariINode {
 	iNode := mariInst.NodePool.getINode()
 	iNode.Version = version
@@ -92,8 +92,8 @@ func (mariInst *Mari) newInternalNode(version uint64) *MariINode {
 }
 
 // newLeafNode
-//	Creates a new leaf node when path copying the mmcmap, which stores a key value pair.
-//	It will also include the version of the mmcmap.
+//	Creates a new leaf node when path copying Mari, which stores a key value pair.
+//	It will also include the version of Mari.
 func (mariInst *Mari) newLeafNode(key, value []byte, version uint64) *MariLNode {
 	lNode := mariInst.NodePool.getLNode()
 	lNode.Version = version
@@ -105,7 +105,7 @@ func (mariInst *Mari) newLeafNode(key, value []byte, version uint64) *MariLNode 
 }
 
 // readINodeFromMemMap
-//	Reads a node in the mmcmap from the serialized memory map.
+//	Reads an internal node in Mari from the serialized memory map.
 func (mariInst *Mari) readINodeFromMemMap(startOffset uint64) (node *MariINode, err error) {
 	defer func() {
 		r := recover()
@@ -135,7 +135,7 @@ func (mariInst *Mari) readINodeFromMemMap(startOffset uint64) (node *MariINode, 
 }
 
 // readLNodeFromMemMap
-//	Reads an node in the mmcmap from the serialized memory map.
+//	Reads a leaf node in Mari from the serialized memory map.
 func (mariInst *Mari) readLNodeFromMemMap(startOffset uint64) (node *MariLNode, err error) {
 	defer func() {
 		r := recover()
@@ -160,7 +160,7 @@ func (mariInst *Mari) readLNodeFromMemMap(startOffset uint64) (node *MariLNode, 
 }
 
 // storeNodeAsPointer
-//	Store a mmcmap node as an unsafe pointer.
+//	Store a MariINode as an unsafe pointer.
 func storeINodeAsPointer(node *MariINode) *unsafe.Pointer {
 	ptr := unsafe.Pointer(node)
 	return &ptr

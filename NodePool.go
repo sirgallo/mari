@@ -54,7 +54,7 @@ func (np *MariNodePool) getLNode() *MariLNode {
 }
 
 // initializePool
-//	When the mmcmap is opened, initialize the pool with the max size of nodes.
+//	When Mari is opened, initialize the pool with the max size of nodes.
 func (np *MariNodePool) initializePools() {
 	for range make([]int, np.MaxSize / 2) {
 		np.INodePool.Put(np.resetINode(&MariINode{}))
