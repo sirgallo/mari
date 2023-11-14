@@ -8,8 +8,8 @@ import "unsafe"
 //============================================= MariNode Operations
 
 
-// copyNode
-//	Creates a copy of an existing node.
+// copyINode
+//	Creates a copy of an existing internal node.
 //	This is used for path copying, so on operations that modify the trie, a copy is created instead of modifying the existing node.
 //	The data structure is essentially immutable. 
 //	If an operation succeeds, the copy replaces the existing node, otherwise the copy is discarded.
