@@ -10,7 +10,9 @@
 
 ## Overview 
 
-`mari` is a simple, embedded key-value store that utilzes a memory mapped file to back the contents of the data. Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free and multiple writers and readers can be operate on the data in parallel. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added. Writers do not lock reads since reads operate on the current/previous version in the data. Since the trie is ordered, range operations are supported, which are also concurrent and lock free. Writes that succeed are immediately flushed to disk to preserve data integrity.
+`mari` is a simple, embedded key-value store that utilzes a memory mapped file to back the contents of the data. 
+
+Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free and multiple writers and readers can be operate on the data in parallel. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added. Writers do not lock reads since reads operate on the current/previous version in the data. Since the trie is ordered, range operations and ordered iterations are supported, which are also concurrent and lock free. Writes that succeed are immediately flushed to disk to preserve data integrity. Transforms can also be created for read operations to transform results before being returned to the user.
 
 This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
 
