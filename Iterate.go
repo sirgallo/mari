@@ -1,5 +1,7 @@
 package mari
 
+import "unsafe"
+
 
 //============================================= Mari Iterate
 
@@ -21,7 +23,15 @@ func (mariInst *Mari) Iterate(startKey []byte, totalResults int, minVersion *uin
 	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 	if readRootErr != nil { return nil, readRootErr }
 
+	accumulator := []*KeyValuePair{}
 	rootPtr := storeINodeAsPointer(currRoot)
+	
+	kvPairs, rangeErr := mariInst.iterateRecursive(rootPtr, minV, startKey, 0, accumulator)
+	if rangeErr != nil { return nil, rangeErr }
 
+	return kvPairs, nil
+}
+
+func (mariInst *Mari) iterateRecursive(node *unsafe.Pointer, minVersion uint64, startKey []byte, level int, acc []*KeyValuePair) ([]*KeyValuePair, error) {
 	return nil, nil
 }
