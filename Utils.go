@@ -11,7 +11,7 @@ import "unsafe"
 
 
 // Print Children
-//	Debugging function for printing nodes in the hash array mapped trie.
+//	Debugging function for printing nodes in the ordered array mapped trie.
 func (mariInst *Mari) PrintChildren() error {
 	mMap := mariInst.Data.Load().(MMap)
 	rootOffsetPtr := (*uint64)(unsafe.Pointer(&mMap[MetaRootOffsetIdx]))
@@ -50,7 +50,7 @@ func extendTable(orig []*MariINode, bitMap [8]uint32, pos int, newNode *MariINod
 }
 
 // getIndexForLevel
-//	Determines the local level for a hash at a particular seed.
+//	Determines the local level for a key.
 func getIndexForLevel(key []byte, level int) byte {
 	return key[level]
 }
