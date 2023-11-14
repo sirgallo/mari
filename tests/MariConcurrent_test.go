@@ -129,8 +129,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 				kvPairs, rangeErr := concurrentMariInst.Iterate(start, ITERATE_SIZE, nil)
 				if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
 				
-				t.Log("len kvPairs", len(kvPairs))
-				
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 
 				isSorted := IsSorted(kvPairs)
@@ -167,7 +165,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 				kvPairs, rangeErr := concurrentMariInst.Range(start, end, nil)
 				if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
 				
-				t.Log("len kvPairs", len(kvPairs))
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 				
 				isSorted := IsSorted(kvPairs)
