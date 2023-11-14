@@ -54,8 +54,13 @@ func main() {
 
   // get a range of key-value pairs from a minimum version
   // if minimum version is nil, version is set to the earliest version
-  kvPairs, rangeErr := mariInst.Range([]("hello"), []("world"), nil)
+  rangekvPairs, rangeErr := mariInst.Range([]("hello"), []("world"), nil)
   if rangeErr != nil { panic(rangeErr.Error()) }
+
+  // get a set of ordered iterated key value pairs from a start key to the total result size
+  // if minimum version is nil, version is set to the earliest version
+  iteratedkvPairs, iterErr := mariInst.Iterate([]("hello"), 10000, nil)
+  if iterErr != nil { panic(iterErr.Error()) }
 
   // delete a value in mari
   _, delErr := mariInst.Delete(key)

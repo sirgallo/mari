@@ -62,8 +62,8 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 					sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode))
 				} else { return sortedKvPairs, nil }
 
-				startKeyIndex := getIndexForLevel(startKey, 0)
-				startKeyPos = mariInst.getPosition(currNode.Bitmap, startKeyIndex, 0)
+				startKeyIndex := getIndexForLevel(startKey, level)
+				startKeyPos = mariInst.getPosition(currNode.Bitmap, startKeyIndex, level)
 				endKeyPos = len(currNode.Children)
 			case endKey != nil && len(endKey) > level:
 				if currNode.Leaf.Version >= minVersion && bytes.Compare(currNode.Leaf.Key, endKey) == -1 {
@@ -71,8 +71,8 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 				} else { return sortedKvPairs, nil }
 
 				startKeyPos = 0
-				endKeyIndex := getIndexForLevel(endKey, 0)
-				endKeyPos = mariInst.getPosition(currNode.Bitmap, endKeyIndex, 0)
+				endKeyIndex := getIndexForLevel(endKey, level)
+				endKeyPos = mariInst.getPosition(currNode.Bitmap, endKeyIndex, level)
 			default:
 				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode)) }
 

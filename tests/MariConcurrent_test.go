@@ -15,7 +15,7 @@ var cTestPath = filepath.Join(os.TempDir(), "testconcurrent")
 var concurrentMariInst *mari.Mari
 var keyValPairs []KeyVal
 var initMariErr error
-var delWG, insertWG, retrieveWG, rangeWG sync.WaitGroup
+var delWG, insertWG, iterWG, retrieveWG, rangeWG sync.WaitGroup
 
 
 func init() {
@@ -111,6 +111,34 @@ func TestMariConcurrentOperations(t *testing.T) {
 		}
 
 		retrieveWG.Wait()
+	})
+
+	t.Run("Test Iterate Operation", func(t *testing.T) {
+		totalElements := uint64(0)
+
+		for range make([]int, NUM_READER_GO_ROUTINES) {
+			first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
+			if randomErr != nil { t.Error("error generating random min max") }
+	
+			start := stkeyValPairs[first].Key
+
+			iterWG.Add(1)
+			go func() {
+				defer iterWG.Done()
+
+				kvPairs, rangeErr := concurrentMariInst.Iterate(start, ITERATE_SIZE, nil)
+				if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
+				
+				t.Log("len kvPairs", len(kvPairs))
+				
+				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
+
+				isSorted := IsSorted(kvPairs)
+				if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+			}()
+
+			iterWG.Wait()
+		}
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {

@@ -80,6 +80,21 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		}
 	})
 
+	t.Run("Test Iterate Operation", func(t *testing.T) {
+		first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
+		if randomErr != nil { t.Error("error generating random min max") }
+
+		start := stkeyValPairs[first].Key
+
+		kvPairs, rangeErr := singleThreadTestMap.Iterate(start, ITERATE_SIZE, nil)
+		if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
+		
+		t.Log("len kvPairs", len(kvPairs))
+		
+		isSorted := IsSorted(kvPairs)
+		if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+	})
+
 	t.Run("Test Range Operation", func(t *testing.T) {
 		first, second, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
 		if randomErr != nil { t.Error("error generating random min max") }
