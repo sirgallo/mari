@@ -141,7 +141,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 				
 				isSorted := IsSorted(kvPairs)
-				if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+				if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
 			}()
 		}
 		

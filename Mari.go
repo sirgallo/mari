@@ -14,7 +14,7 @@ import "github.com/sirgallo/utils"
 //	Then, the meta data is initialized and written to the first 0-23 bytes in the memory map.
 //	An initial root MariNode will also be written to the memory map as well.
 func Open(opts MariOpts) (*Mari, error) {
-	np := NewMariNodePool(100000)	// let's initialize with 100,000 pre-allocated nodes
+	np := newMariNodePool(100000)	// let's initialize with 100,000 pre-allocated nodes
 
 	mariInst := &Mari{
 		Opened: true,
@@ -85,7 +85,7 @@ func (mariInst *Mari) Remove() error {
 	return nil
 }
 
-// InitializeFile
+// initializeFile
 //	Initialize the memory mapped file to persist the hamt.
 //	If file size is 0, initiliaze the file size to 64MB and set the initial metadata and root values into the map.
 //	Otherwise, just map the already initialized file into the memory map.

@@ -8,46 +8,6 @@ import "unsafe"
 //============================================= Mari Metadata
 
 
-// ReadMetaFromMemMap
-//	Read and deserialize the current metadata object from the memory map.
-func (mariInst *Mari) ReadMetaFromMemMap() (meta *MariMetaData, err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			meta = nil
-			err = errors.New("error reading metadata from mmap")
-		}
-	}()
-	
-	mMap := mariInst.Data.Load().(MMap)
-	currMeta := mMap[MetaVersionIdx:MetaEndSerializedOffset + OffsetSize]
-	
-	meta, readMetaErr := DeserializeMetaData(currMeta)
-	if readMetaErr != nil { return nil, readMetaErr }
-
-	return meta, nil
-}
-
-// WriteMetaToMemMap
-//	Copy the serialized metadata into the memory map.
-func (mariInst *Mari) WriteMetaToMemMap(sMeta []byte) (ok bool, err error) {
-	defer func() {
-		r := recover()
-		if r != nil { 
-			ok = false
-			err = errors.New("error writing metadata to mmap")
-		}
-	}()
-
-	mMap := mariInst.Data.Load().(MMap)
-	copy(mMap[MetaVersionIdx:MetaEndSerializedOffset + OffsetSize], sMeta)
-
-	flushErr := mariInst.flushRegionToDisk(MetaVersionIdx, MetaEndSerializedOffset + OffsetSize)
-	if flushErr != nil { return false, flushErr }
-
-	return true, nil
-}
-
 // initMeta
 //	Initialize and serialize the metadata in a new Mari.
 //	Version starts at 0 and increments, and root offset starts at 24.
@@ -58,8 +18,8 @@ func (mariInst *Mari) initMeta(nextStart uint64) error {
 		NextStartOffset: nextStart,
 	}
 
-	serializedMeta := newMeta.SerializeMetaData()
-	_, flushErr := mariInst.WriteMetaToMemMap(serializedMeta)
+	serializedMeta := newMeta.serializeMetaData()
+	_, flushErr := mariInst.writeMetaToMemMap(serializedMeta)
 	if flushErr != nil { return flushErr }
 	
 	return nil
@@ -134,4 +94,24 @@ func (mariInst *Mari) storeMetaPointer(ptr *uint64, val uint64) (err error) {
 
 	atomic.StoreUint64(ptr, val)
 	return nil
+}
+
+// writeMetaToMemMap
+//	Copy the serialized metadata into the memory map.
+func (mariInst *Mari) writeMetaToMemMap(sMeta []byte) (ok bool, err error) {
+	defer func() {
+		r := recover()
+		if r != nil { 
+			ok = false
+			err = errors.New("error writing metadata to mmap")
+		}
+	}()
+
+	mMap := mariInst.Data.Load().(MMap)
+	copy(mMap[MetaVersionIdx:MetaEndSerializedOffset + OffsetSize], sMeta)
+
+	flushErr := mariInst.flushRegionToDisk(MetaVersionIdx, MetaEndSerializedOffset + OffsetSize)
+	if flushErr != nil { return false, flushErr }
+
+	return true, nil
 }

@@ -11,12 +11,24 @@ import "golang.org/x/sys/unix"
 // Map 
 //	Memory maps an entire file.
 func Map(file *os.File, prot, flags int) (MMap, error) {
-	return MapRegion(file, -1, prot, flags, 0)
+	return mapRegion(file, -1, prot, flags, 0)
 }
 
-// MapRegion 
+// Flush
+//	Writes the byte slice from the mmap to disk.
+func (mapped MMap) Flush() error {
+	return unix.Msync(mapped, unix.MS_SYNC)
+}
+
+// Unmap 
+//	Unmaps the byte slice from the memory mapped file.
+func (mapped MMap) Unmap() error {
+	return unix.Munmap(mapped)
+}
+
+// mapRegion 
 //	Memory maps a region of a file.
-func MapRegion(file *os.File, length int, prot, flags int, offset int64) (MMap, error) {
+func mapRegion(file *os.File, length int, prot, flags int, offset int64) (MMap, error) {
 	if offset % int64(os.Getpagesize()) != 0 {
 		return nil, errors.New("offset parameter must be a multiple of the system's page size")
 	}
@@ -61,16 +73,4 @@ func mmapHelper(length int, inprot, inflags, fileDescriptor uintptr, offset int6
 	if mmapErr != nil { return nil, mmapErr }
 	
 	return bytes, nil
-}
-
-// Flush
-//	Writes the byte slice from the mmap to disk.
-func (mapped MMap) Flush() error {
-	return unix.Msync(mapped, unix.MS_SYNC)
-}
-
-// Unmap 
-//	Unmaps the byte slice from the memory mapped file.
-func (mapped MMap) Unmap() error {
-	return unix.Munmap(mapped)
 }

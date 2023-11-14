@@ -10,18 +10,6 @@ import "unsafe"
 //============================================= Mari Utilities
 
 
-// IsBitSet
-//	Determines whether or not a bit is set in a bitmap by taking the bitmap and applying a mask with a 1 at the position in the bitmap to check.
-//	A logical and operation is applied and if the value is not equal to 0, then the bit is set.
-func IsBitSet(bitmap [8]uint32, index byte) bool {
-	subBitmapIndex := index / 32
-
-	subBitmap := bitmap[subBitmapIndex]
-	indexInSubBitmap := index % 32
-
-	return (subBitmap & (1 << indexInSubBitmap)) != 0
-}
-
 // Print Children
 //	Debugging function for printing nodes in the hash array mapped trie.
 func (mariInst *Mari) PrintChildren() error {
@@ -29,26 +17,13 @@ func (mariInst *Mari) PrintChildren() error {
 	rootOffsetPtr := (*uint64)(unsafe.Pointer(&mMap[MetaRootOffsetIdx]))
 	rootOffset := atomic.LoadUint64(rootOffsetPtr)
 
-	currRoot, readRootErr := mariInst.ReadINodeFromMemMap(rootOffset)
+	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 	if readRootErr != nil { return readRootErr }
 	
 	readChildrenErr := mariInst.printChildrenRecursive(currRoot, 0)
 	if readChildrenErr != nil { return readChildrenErr }
 
 	return nil
-}
-
-// SetBit
-//	Performs a logical xor operation on the current bitmap and the a 32 bit value where the value is all 0s except for at the position of the incoming index.
-//	Essentially flips the bit if incoming is 1 and bitmap is 0 at that position, or 0 to 1. 
-//	If 0 and 0 or 1 and 1, bitmap is not changed.
-func SetBit(bitmap [8]uint32, index byte) [8]uint32 {
-	subBitmapIndex := index / 32
-	indexInSubBitmap := index % 32
-
-	bitmap[subBitmapIndex] = bitmap[subBitmapIndex] ^ (1 << indexInSubBitmap)
-	
-	return bitmap
 }
 
 // calculateHammingWeight
@@ -98,6 +73,18 @@ func (mariInst *Mari) getPosition(bitMap [8]uint32, index byte, level int) int {
 	return calculateHammingWeight(isolatedBits)
 }
 
+// isBitSet
+//	Determines whether or not a bit is set in a bitmap by taking the bitmap and applying a mask with a 1 at the position in the bitmap to check.
+//	A logical and operation is applied and if the value is not equal to 0, then the bit is set.
+func isBitSet(bitmap [8]uint32, index byte) bool {
+	subBitmapIndex := index / 32
+
+	subBitmap := bitmap[subBitmapIndex]
+	indexInSubBitmap := index % 32
+
+	return (subBitmap & (1 << indexInSubBitmap)) != 0
+}
+
 // populationCount
 //	Determine the total population for the combination of all 8 32 bit bitmaps making up the 256 bit bitmap.
 func populationCount(bitmap [8]uint32) int {
@@ -107,6 +94,19 @@ func populationCount(bitmap [8]uint32) int {
 	}
 
 	return popCount
+}
+
+// setBit
+//	Performs a logical xor operation on the current bitmap and the a 32 bit value where the value is all 0s except for at the position of the incoming index.
+//	Essentially flips the bit if incoming is 1 and bitmap is 0 at that position, or 0 to 1. 
+//	If 0 and 0 or 1 and 1, bitmap is not changed.
+func setBit(bitmap [8]uint32, index byte) [8]uint32 {
+	subBitmapIndex := index / 32
+	indexInSubBitmap := index % 32
+
+	bitmap[subBitmapIndex] = bitmap[subBitmapIndex] ^ (1 << indexInSubBitmap)
+	
+	return bitmap
 }
 
 // shrinkTable
@@ -133,7 +133,7 @@ func (mariInst *Mari) printChildrenRecursive(node *MariINode, level int) error {
 
 	for idx := range node.Children {
 		childPtr := node.Children[idx]
-		child, desErr := mariInst.ReadINodeFromMemMap(childPtr.StartOffset)
+		child, desErr := mariInst.readINodeFromMemMap(childPtr.StartOffset)
 		if desErr != nil { return desErr }
 
 		if child != nil {

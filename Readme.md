@@ -33,22 +33,22 @@ func main() {
   homedir, homedirErr := os.UserHomeDir()
   if homedirErr != nil { panic(homedirErr.Error()) }
 
-  // initialize the mari filepath
+  // initialize mari filepath
   filepath := filepath.Join(homedir, FILENAME)
   opts := mari.MariOpts{ Filepath: filepath }
 
-  // open the mari
+  // open mari
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }
 
   key := []byte("hello")
   value := []byte("world")
 
-  // put a value in the mari
+  // put a value in mari
   _, putErr := mariInst.Put(key, value)
   if putErr != nil { panic(putErr.Error()) }
 
-  // get a value in the mari
+  // get a value in mari
   fetched, getErr := mariInst.Get(key)
   if getErr != nil { panic(getErr.Error()) }
 
@@ -57,19 +57,19 @@ func main() {
   kvPairs, rangeErr := mariInst.Range([]("hello"), []("world"), nil)
   if rangeErr != nil { panic(rangeErr.Error()) }
 
-  // delete a value in the mari
+  // delete a value in mari
   _, delErr := mariInst.Delete(key)
   if delErr != nil { panic(delErr.Error()) }
 
-  // get the mari filesize
+  // get mari filesize
   fSize, sizeErr := mariInst.FileSize()
   if sizeErr != nil { panic(sizeErr.Error()) }
 
-  // close the mari
+  // close mari
   closeErr := mariInst.Close()
   if closeErr != nil { panic(closeErr.Error()) }
 
-  // close the mari and remove the associated file
+  // close mari and remove the associated file
   removeErr := mariInst.Remove()
   if removeErr != nil { panic(removeErr.Error()) }
 }
@@ -111,10 +111,4 @@ The `mmap` function utilizes `golang.org/x/sys/unix`, so the mmap functionality 
 
 ## Sources
 
-[CMap](./docs/CMap.md)
-
-[MMCMap](./docs/MMCMap.md)
-
-[Murmur](./docs/Murmur.md)
-
-[Tests](./docs/Tests.md)
+[Concepts](./Concepts.md)

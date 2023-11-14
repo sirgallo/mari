@@ -10,7 +10,7 @@ import "sync/atomic"
 // NewMariNodePool
 //	Creates a new node pool for recycling nodes instead of letting garbage collection handle them.
 //	Should help performance when there are a large number of go routines attempting to allocate/deallocate nodes.
-func NewMariNodePool(maxSize int64) *MariNodePool {
+func newMariNodePool(maxSize int64) *MariNodePool {
 	size := int64(0)
 	np := &MariNodePool{ MaxSize: maxSize, Size: size }
 
@@ -33,44 +33,24 @@ func NewMariNodePool(maxSize int64) *MariNodePool {
 	return np
 }
 
-// GetINode
+// getINode
 //	Attempt to get a pre-allocated internal node from the node pool and decrement the total allocated nodes.
 //	If the pool is empty, a new node is allocated
-func (np *MariNodePool) GetINode() *MariINode {
+func (np *MariNodePool) getINode() *MariINode {
 	node := np.INodePool.Get().(*MariINode)
 	if atomic.LoadInt64(&np.Size) > 0 { atomic.AddInt64(&np.Size, -1) }
 
 	return node
 }
 
-// GetLNode
+// getLNode
 //	Attempt to get a pre-allocated leaf node from the node pool and decrement the total allocated nodes.
 //	If the pool is empty, a new node is allocated
-func (np *MariNodePool) GetLNode() *MariLNode {
+func (np *MariNodePool) getLNode() *MariLNode {
 	node := np.LNodePool.Get().(*MariLNode)
 	if atomic.LoadInt64(&np.Size) > 0 { atomic.AddInt64(&np.Size, -1) }
 
 	return node
-}
-
-// PutINode
-//	Attempt to put an internal node back into the pool once a path has been copied + serialized.
-//	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
-func (np *MariNodePool) PutINode(node *MariINode) {
-	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
-		np.INodePool.Put(np.resetINode(node))
-		atomic.AddInt64(&np.Size, 1)
-	}
-}
-
-// PutLNode
-//	Attempt to put a leaf node back into the pool once a path has been copied + serialized.
-//	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
-func (np *MariNodePool) PutLNode(node *MariLNode) {
-	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
-		np.LNodePool.Put(np.resetLNode(node))
-		atomic.AddInt64(&np.Size, 1)
-	}
 }
 
 // initializePool
@@ -83,6 +63,26 @@ func (np *MariNodePool) initializePools() {
 
 	for range make([]int, np.MaxSize / 2) {
 		np.LNodePool.Put(np.resetLNode(&MariLNode{}))
+		atomic.AddInt64(&np.Size, 1)
+	}
+}
+
+// putINode
+//	Attempt to put an internal node back into the pool once a path has been copied + serialized.
+//	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
+func (np *MariNodePool) putINode(node *MariINode) {
+	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
+		np.INodePool.Put(np.resetINode(node))
+		atomic.AddInt64(&np.Size, 1)
+	}
+}
+
+// putLNode
+//	Attempt to put a leaf node back into the pool once a path has been copied + serialized.
+//	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
+func (np *MariNodePool) putLNode(node *MariLNode) {
+	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
+		np.LNodePool.Put(np.resetLNode(node))
 		atomic.AddInt64(&np.Size, 1)
 	}
 }

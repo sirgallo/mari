@@ -27,7 +27,7 @@ func (mariInst *Mari) Put(key, value []byte) (bool, error) {
 			_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 			if loadROffErr != nil { return false, loadROffErr }
 	
-			currRoot, readRootErr := mariInst.ReadINodeFromMemMap(rootOffset)
+			currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 			if readRootErr != nil {
 				mariInst.RWResizeLock.RUnlock()
 				return false, readRootErr
@@ -35,7 +35,6 @@ func (mariInst *Mari) Put(key, value []byte) (bool, error) {
 	
 			currRoot.Version = currRoot.Version + 1
 			rootPtr := storeINodeAsPointer(currRoot)
-	
 			_, putErr := mariInst.putRecursive(rootPtr, key, value, 0)
 			if putErr != nil {
 				mariInst.RWResizeLock.RUnlock()
@@ -78,37 +77,43 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 	nodeCopy := mariInst.copyINode(currNode)
 	nodeCopy.Leaf.Version = nodeCopy.Version
 
+	putNewINode := func(node *MariINode, currIdx byte, uKey, uVal []byte) (*MariINode, error) {
+		node.Bitmap = setBit(node.Bitmap, currIdx)
+		pos := mariInst.getPosition(node.Bitmap, currIdx, level)
+
+		newINode := mariInst.newInternalNode(node.Version)
+		iNodePtr := storeINodeAsPointer(newINode)
+		_, putINodeErr := mariInst.putRecursive(iNodePtr, uKey, uVal, level + 1)
+		if putINodeErr != nil { return nil, putINodeErr }
+
+		updatedINode:= loadINodeFromPointer(iNodePtr)
+		node.Children = extendTable(node.Children, node.Bitmap, pos, updatedINode)
+
+		return node, nil
+	}
+
 	if len(key) == level {
 		switch {
 			case bytes.Equal(nodeCopy.Leaf.Key, key):
 				if ! bytes.Equal(nodeCopy.Leaf.Value, value) { nodeCopy.Leaf = mariInst.newLeafNode(key, value, nodeCopy.Version) }
 			default:
 				currentLeaf := nodeCopy.Leaf
+				nodeCopy.Leaf = mariInst.newLeafNode(key, value, nodeCopy.Version)
 
 				if len(currentLeaf.Key) > len(key) {
 					idx := getIndexForLevel(currentLeaf.Key, level)
 
-					if ! IsBitSet(nodeCopy.Bitmap, idx) { 
-						nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, idx)
-						newPos := mariInst.getPosition(nodeCopy.Bitmap, idx, level)
-
-						cINode := mariInst.newInternalNode(nodeCopy.Version)
-						cINodePtr := storeINodeAsPointer(cINode)
-						_, putErr = mariInst.putRecursive(cINodePtr, currentLeaf.Key, currentLeaf.Value, level + 1)
+					if ! isBitSet(nodeCopy.Bitmap, idx) { 
+						nodeCopy, putErr = putNewINode(nodeCopy, idx, currentLeaf.Key, currentLeaf.Value)
 						if putErr != nil { return false, putErr }
-			
-						cUpdatedINode:= loadINodeFromPointer(cINodePtr)
-						nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, newPos, cUpdatedINode)
 					}
 				}
-
-				nodeCopy.Leaf = mariInst.newLeafNode(key, value, nodeCopy.Version)
 		}
 	} else {
 		index := getIndexForLevel(key, level)
 		
 		switch {
-			case ! IsBitSet(nodeCopy.Bitmap, index):
+			case ! isBitSet(nodeCopy.Bitmap, index):
 				if level > 0 {
 					popCount := populationCount(nodeCopy.Bitmap)
 					currentLeaf := nodeCopy.Leaf
@@ -119,77 +124,32 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 						case len(currentLeaf.Key) == 0 && popCount == 0:
 							nodeCopy.Leaf = mariInst.newLeafNode(key, value, nodeCopy.Version)
 						case len(currentLeaf.Key) == 0 && popCount > 0:
-							nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, index)
-							pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
-
-							newINode := mariInst.newInternalNode(nodeCopy.Version)
-				
-							iNodePtr := storeINodeAsPointer(newINode)
-							_, putErr = mariInst.putRecursive(iNodePtr, key, value, level + 1)
+							nodeCopy, putErr = putNewINode(nodeCopy, index, key, value)
 							if putErr != nil { return false, putErr }
-				
-							updatedINode:= loadINodeFromPointer(iNodePtr)
-							nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, pos, updatedINode)
 						default:
 							switch {
 								case len(key) > len(currentLeaf.Key) && len(currentLeaf.Key) > 0:
-									nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, index)
-									pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
-
-									newINode := mariInst.newInternalNode(nodeCopy.Version)
-						
-									iNodePtr := storeINodeAsPointer(newINode)
-									_, putErr = mariInst.putRecursive(iNodePtr, key, value, level + 1)
+									nodeCopy, putErr = putNewINode(nodeCopy, index, key, value)
 									if putErr != nil { return false, putErr }
-						
-									updatedINode:= loadINodeFromPointer(iNodePtr)
-									nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, pos, updatedINode)
 								case len(currentLeaf.Key) > len(key):
 									nodeCopy.Leaf = mariInst.newLeafNode(key, value, nodeCopy.Version)
-
 									newIdx := getIndexForLevel(currentLeaf.Key, level)
 									
-									if ! IsBitSet(nodeCopy.Bitmap, newIdx) {
-										nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, newIdx) 
-										newPos := mariInst.getPosition(nodeCopy.Bitmap, newIdx, level)
-
-										newINode := mariInst.newInternalNode(nodeCopy.Version)
-										iNodePtr := storeINodeAsPointer(newINode)
-
-										_, putErr = mariInst.putRecursive(iNodePtr, currentLeaf.Key, currentLeaf.Value, level + 1)
+									if ! isBitSet(nodeCopy.Bitmap, newIdx) {
+										nodeCopy, putErr = putNewINode(nodeCopy, newIdx, currentLeaf.Key, currentLeaf.Value)
 										if putErr != nil { return false, putErr }
-
-										updatedINode:= loadINodeFromPointer(iNodePtr)
-										nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, newPos, updatedINode)
 									}
 								default:
 									nodeCopy.Leaf = mariInst.newLeafNode(nil, nil, nodeCopy.Version)
 
-									nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, index)
-									pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
-		
-									newINode := mariInst.newInternalNode(nodeCopy.Version)
-									iNodePtr := storeINodeAsPointer(newINode)
-									
-									_, putErr = mariInst.putRecursive(iNodePtr, key, value, level + 1)
+									nodeCopy, putErr = putNewINode(nodeCopy, index, key, value)
 									if putErr != nil { return false, putErr }
 		
-									updatedINode:= loadINodeFromPointer(iNodePtr)
-									nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, pos, updatedINode)
-		
 									newIdx := getIndexForLevel(currentLeaf.Key, level)
-									if ! IsBitSet(nodeCopy.Bitmap, newIdx) {
-										nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, newIdx) 
-										newPos := mariInst.getPosition(nodeCopy.Bitmap, newIdx, level)
 
-										clINode := mariInst.newInternalNode(nodeCopy.Version)
-										clINodePtr := storeINodeAsPointer(clINode)
-										
-										_, putErr = mariInst.putRecursive(clINodePtr, currentLeaf.Key, currentLeaf.Value, level + 1)
+									if ! isBitSet(nodeCopy.Bitmap, newIdx) {
+										nodeCopy, putErr = putNewINode(nodeCopy, newIdx, currentLeaf.Key, currentLeaf.Value)
 										if putErr != nil { return false, putErr }
-							
-										clUpdatedINode := loadINodeFromPointer(clINodePtr)
-										nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, newPos, clUpdatedINode)
 									} else {
 										newPos := mariInst.getPosition(nodeCopy.Bitmap, newIdx, level)
 										
@@ -203,22 +163,13 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 										if putErr != nil { return false, putErr }
 
 										updatedCNode := loadINodeFromPointer(childPtr)
-										nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, newPos, updatedCNode)
+										nodeCopy.Children[newPos] = updatedCNode
 									}
 							}
 					}
 				} else {
-					nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, index)
-					newINode := mariInst.newInternalNode(nodeCopy.Version)
-		
-					iNodePtr := storeINodeAsPointer(newINode)
-					_, putErr = mariInst.putRecursive(iNodePtr, key, value, level + 1)
+					nodeCopy, putErr = putNewINode(nodeCopy, index, key, value)
 					if putErr != nil { return false, putErr }
-		
-					updatedINode:= loadINodeFromPointer(iNodePtr)
-
-					pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
-					nodeCopy.Children = extendTable(nodeCopy.Children, nodeCopy.Bitmap, pos, updatedINode)
 				}
 			default:
 				pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
@@ -254,7 +205,7 @@ func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
 	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 	if loadROffErr != nil { return nil, loadROffErr }
 
-	currRoot, readRootErr := mariInst.ReadINodeFromMemMap(rootOffset)
+	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 	if readRootErr != nil { return nil, readRootErr }
 
 	rootPtr := unsafe.Pointer(currRoot)
@@ -272,34 +223,30 @@ func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
 func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int) (*KeyValuePair, error) {
 	currNode := loadINodeFromPointer(node)
 	
-	if len(key) == level {
-		if bytes.Equal(key, currNode.Leaf.Key) {
-			return &KeyValuePair{
-				Version: currNode.Leaf.Version,
-				Key: currNode.Leaf.Key,
-				Value: currNode.Leaf.Value,
-			}, nil
+	getKeyVal := func() *KeyValuePair {
+		return &KeyValuePair{
+			Version: currNode.Leaf.Version,
+			Key: currNode.Leaf.Key,
+			Value: currNode.Leaf.Value,
 		}
+	}
 
+	if len(key) == level {
+		if bytes.Equal(key, currNode.Leaf.Key) { return getKeyVal(), nil }
 		return nil, nil
 	} else {
+		if bytes.Equal(key, currNode.Leaf.Key) { return getKeyVal(), nil }
+		
 		index := getIndexForLevel(key, level)
-
-		if bytes.Equal(key, currNode.Leaf.Key) {
-			return &KeyValuePair{
-				Version: currNode.Leaf.Version,
-				Key: currNode.Leaf.Key,
-				Value: currNode.Leaf.Value,
-			}, nil
-		}
+		
 		switch {
-			case ! IsBitSet(currNode.Bitmap, index):
+			case ! isBitSet(currNode.Bitmap, index):
 				return nil, nil
 			default:
 				pos := mariInst.getPosition(currNode.Bitmap, index, level)
 				childOffset := currNode.Children[pos]
 
-				childNode, desErr := mariInst.ReadINodeFromMemMap(childOffset.StartOffset)
+				childNode, desErr := mariInst.readINodeFromMemMap(childOffset.StartOffset)
 				if desErr != nil { return nil, desErr }
 
 				childPtr := storeINodeAsPointer(childNode)
@@ -326,7 +273,7 @@ func (mariInst *Mari) Delete(key []byte) (bool, error) {
 			_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 			if loadROffErr != nil { return false, loadROffErr }
 
-			currRoot, readRootErr := mariInst.ReadINodeFromMemMap(rootOffset)
+			currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 			if readRootErr != nil {
 				mariInst.RWResizeLock.RUnlock()
 				return false, readRootErr
@@ -334,7 +281,6 @@ func (mariInst *Mari) Delete(key []byte) (bool, error) {
 
 			currRoot.Version = currRoot.Version + 1
 			rootPtr := storeINodeAsPointer(currRoot)
-
 			_, delErr := mariInst.deleteRecursive(rootPtr, key, 0)
 			if delErr != nil {
 				mariInst.RWResizeLock.RUnlock()
@@ -373,11 +319,15 @@ func (mariInst *Mari) deleteRecursive(node *unsafe.Pointer, key []byte, level in
 	currNode := loadINodeFromPointer(node)
 	nodeCopy := mariInst.copyINode(currNode)
 
+	deleteKeyVal := func() bool {
+		nodeCopy.Leaf = mariInst.newLeafNode(nil, nil, nodeCopy.Version)
+		return mariInst.compareAndSwap(node, currNode, nodeCopy)
+	}
+
 	if len(key) == level {
 		switch {
 			case bytes.Equal(nodeCopy.Leaf.Key, key):
-				nodeCopy.Leaf = mariInst.newLeafNode(nil, nil, nodeCopy.Version)
-				return mariInst.compareAndSwap(node, currNode, nodeCopy), nil
+				return deleteKeyVal(), nil
 			default:
 				return true, nil
 		}
@@ -385,13 +335,8 @@ func (mariInst *Mari) deleteRecursive(node *unsafe.Pointer, key []byte, level in
 		index := getIndexForLevel(key, level)
 
 		switch {
-			case ! IsBitSet(nodeCopy.Bitmap, index):
-				if bytes.Equal(nodeCopy.Leaf.Key, key) { 
-					nodeCopy.Leaf = mariInst.newLeafNode(nil, nil, nodeCopy.Version) 
-					return mariInst.compareAndSwap(node, currNode, nodeCopy), nil
-				}
-				
-				return true, nil
+			case bytes.Equal(nodeCopy.Leaf.Key, key):
+				return deleteKeyVal(), nil
 			default:
 				pos := mariInst.getPosition(nodeCopy.Bitmap, index, level)
 				childOffset := nodeCopy.Children[pos]
@@ -412,7 +357,7 @@ func (mariInst *Mari) deleteRecursive(node *unsafe.Pointer, key []byte, level in
 					childNodePopCount := populationCount(updatedChildNode.Bitmap)
 					
 					if childNodePopCount == 0 {
-						nodeCopy.Bitmap = SetBit(nodeCopy.Bitmap, index)
+						nodeCopy.Bitmap = setBit(nodeCopy.Bitmap, index)
 						nodeCopy.Children = shrinkTable(nodeCopy.Children, nodeCopy.Bitmap, pos)
 					}
 				}
@@ -446,7 +391,7 @@ func (mariInst *Mari) getChildNode(childOffset *MariINode, version uint64) (*Mar
 	if childOffset.Version == version {
 		childNode = childOffset
 	} else {
-		childNode, desErr = mariInst.ReadINodeFromMemMap(childOffset.StartOffset)
+		childNode, desErr = mariInst.readINodeFromMemMap(childOffset.StartOffset)
 		if desErr != nil { return nil, desErr }
 	}
 

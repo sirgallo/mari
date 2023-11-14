@@ -147,7 +147,7 @@ func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
 	newVersion := path.Version
 	newOffsetInMMap := endOffset
 	
-	serializedPath, serializeErr := mariInst.SerializePathToMemMap(path, newOffsetInMMap)
+	serializedPath, serializeErr := mariInst.serializePathToMemMap(path, newOffsetInMMap)
 	if serializeErr != nil { return false, serializeErr }
 
 	updatedMeta := &MariMetaData{

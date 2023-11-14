@@ -25,11 +25,10 @@ func (mmcMap *Mari) Range(startKey, endKey []byte, minVersion *uint64) ([]*KeyVa
 	_, rootOffset, loadROffErr := mmcMap.loadMetaRootOffset()
 	if loadROffErr != nil { return nil, loadROffErr }
 
-	currRoot, readRootErr := mmcMap.ReadINodeFromMemMap(rootOffset)
+	currRoot, readRootErr := mmcMap.readINodeFromMemMap(rootOffset)
 	if readRootErr != nil { return nil, readRootErr }
 
 	rootPtr := storeINodeAsPointer(currRoot)
-
 	kvPairs, rangeErr := mmcMap.rangeRecursive(rootPtr, minV, startKey, endKey, 0)
 	if rangeErr != nil { return nil, rangeErr }
 
@@ -75,9 +74,7 @@ func (mmcMap *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, star
 				endKeyIndex := getIndexForLevel(endKey, 0)
 				endKeyPos = mmcMap.getPosition(currNode.Bitmap, endKeyIndex, 0)
 			default:
-				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 {
-					sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode))
-				}
+				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode)) }
 
 				startKeyPos = 0
 				endKeyPos = len(currNode.Children)

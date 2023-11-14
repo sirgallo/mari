@@ -8,118 +8,13 @@ import "unsafe"
 //============================================= MariNode Operations
 
 
-// ReadNodeFromMemMap
-//	Reads a node in the mmcmap from the serialized memory map.
-func (mariInst *Mari) ReadINodeFromMemMap(startOffset uint64) (node *MariINode, err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			node = nil
-			err = errors.New("error reading node from mem map")
-		}
-	}()
-	
-	endOffsetIdx := startOffset + NodeEndOffsetIdx
-	
-	mMap := mariInst.Data.Load().(MMap)
-	sEndOffset := mMap[endOffsetIdx:endOffsetIdx + OffsetSize]
-
-	endOffset, decEndOffErr := deserializeUint64(sEndOffset)
-	if decEndOffErr != nil { return nil, decEndOffErr }
-
-	sNode := mMap[startOffset:endOffset + 1]
-	node, decNodeErr := mariInst.DeserializeINode(sNode)
-	if decNodeErr != nil { return nil, decNodeErr }
-
-	leaf, readLeafErr := mariInst.ReadLNodeFromMemMap(node.Leaf.StartOffset)
-	if readLeafErr != nil { return nil, readLeafErr }
-
-	node.Leaf = leaf
-	return node, nil
-}
-
-// WriteINodeToMemMap
-//	Serializes and writes an internal node instance to the memory map.
-func (mariInst *Mari) WriteINodeToMemMap(node *MariINode) (offset uint64, err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			offset = 0
-			err = errors.New("error writing new path to mmap")
-		}
-	}()
-
-	sNode, serializeErr := node.serializeINode(false)
-	if serializeErr != nil { return 0, serializeErr	}
-
-	mMap := mariInst.Data.Load().(MMap)
-	copy(mMap[node.StartOffset:node.Leaf.StartOffset], sNode)
-
-	flushErr := mariInst.flushRegionToDisk(node.StartOffset, node.EndOffset)
-	if flushErr != nil { return 0, flushErr } 
-	
-	lEndOffset, writErr := mariInst.WriteLNodeToMemMap(node.Leaf)
-	if writErr != nil { return 0, writErr }
-
-	return lEndOffset, nil
-}
-
-// ReadI	NodeFromMemMap
-//	Reads an node in the mmcmap from the serialized memory map.
-func (mariInst *Mari) ReadLNodeFromMemMap(startOffset uint64) (node *MariLNode, err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			node = nil
-			err = errors.New("error reading node from mem map")
-		}
-	}()
-	
-	endOffsetIdx := startOffset + NodeEndOffsetIdx
-	mMap := mariInst.Data.Load().(MMap)
-	sEndOffset := mMap[endOffsetIdx:endOffsetIdx + OffsetSize]
-
-	endOffset, decEndOffErr := deserializeUint64(sEndOffset)
-	if decEndOffErr != nil { return nil, decEndOffErr }
-
-	sNode := mMap[startOffset:endOffset + 1]
-	node, decNodeErr := mariInst.DeserializeLNode(sNode)
-	if decNodeErr != nil { return nil, decNodeErr }
-
-	return node, nil
-}
-
-// WriteNodeToMemMap
-//	Serializes and writes a MariNode instance to the memory map.
-func (mariInst *Mari) WriteLNodeToMemMap(node *MariLNode) (offset uint64, err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			offset = 0
-			err = errors.New("error writing new path to mmap")
-		}
-	}()
-
-	sNode, serializeErr := node.serializeLNode()
-	if serializeErr != nil { return 0, serializeErr	}
-
-	endOffset := node.determineEndOffsetLNode()
-	mMap := mariInst.Data.Load().(MMap)
-	copy(mMap[node.StartOffset:endOffset + 1], sNode)
-
-	flushErr := mariInst.flushRegionToDisk(node.StartOffset, endOffset)
-	if flushErr != nil { return 0, flushErr } 
-	
-	return endOffset + 1, nil
-}
-
 // copyNode
 //	Creates a copy of an existing node.
 //	This is used for path copying, so on operations that modify the trie, a copy is created instead of modifying the existing node.
 //	The data structure is essentially immutable. 
 //	If an operation succeeds, the copy replaces the existing node, otherwise the copy is discarded.
 func (mariInst *Mari) copyINode(node *MariINode) *MariINode {
-	nodeCopy := mariInst.NodePool.GetINode()
+	nodeCopy := mariInst.NodePool.getINode()
 	
 	nodeCopy.Version = node.Version
 	nodeCopy.Bitmap = node.Bitmap
@@ -172,10 +67,10 @@ func getSerializedNodeSize(data []byte) uint64 {
 // initRoot
 //	Initialize the Version 0 root where operations will begin traversing.
 func (mariInst *Mari) initRoot() (uint64, error) {
-	root := mariInst.NodePool.GetINode()
+	root := mariInst.NodePool.getINode()
 	root.StartOffset = uint64(InitRootOffset)
 
-	endOffset, writeNodeErr := mariInst.WriteINodeToMemMap(root)
+	endOffset, writeNodeErr := mariInst.writeINodeToMemMap(root)
 	if writeNodeErr != nil { return 0, writeNodeErr }
 
 	return endOffset, nil
@@ -190,7 +85,7 @@ func loadINodeFromPointer(ptr *unsafe.Pointer) *MariINode {
 // newInternalNode
 //	Creates a new internal node in the hash array mapped trie, which is essentially a branch node that contains pointers to child nodes.
 func (mariInst *Mari) newInternalNode(version uint64) *MariINode {
-	iNode := mariInst.NodePool.GetINode()
+	iNode := mariInst.NodePool.getINode()
 	iNode.Version = version
 
 	return iNode
@@ -200,7 +95,7 @@ func (mariInst *Mari) newInternalNode(version uint64) *MariINode {
 //	Creates a new leaf node when path copying the mmcmap, which stores a key value pair.
 //	It will also include the version of the mmcmap.
 func (mariInst *Mari) newLeafNode(key, value []byte, version uint64) *MariLNode {
-	lNode := mariInst.NodePool.GetLNode()
+	lNode := mariInst.NodePool.getLNode()
 	lNode.Version = version
 	lNode.KeyLength = uint16(len(key))
 	lNode.Key = key
@@ -209,11 +104,116 @@ func (mariInst *Mari) newLeafNode(key, value []byte, version uint64) *MariLNode 
 	return lNode
 }
 
+// readINodeFromMemMap
+//	Reads a node in the mmcmap from the serialized memory map.
+func (mariInst *Mari) readINodeFromMemMap(startOffset uint64) (node *MariINode, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			node = nil
+			err = errors.New("error reading node from mem map")
+		}
+	}()
+	
+	endOffsetIdx := startOffset + NodeEndOffsetIdx
+	
+	mMap := mariInst.Data.Load().(MMap)
+	sEndOffset := mMap[endOffsetIdx:endOffsetIdx + OffsetSize]
+
+	endOffset, decEndOffErr := deserializeUint64(sEndOffset)
+	if decEndOffErr != nil { return nil, decEndOffErr }
+
+	sNode := mMap[startOffset:endOffset + 1]
+	node, decNodeErr := mariInst.deserializeINode(sNode)
+	if decNodeErr != nil { return nil, decNodeErr }
+
+	leaf, readLeafErr := mariInst.readLNodeFromMemMap(node.Leaf.StartOffset)
+	if readLeafErr != nil { return nil, readLeafErr }
+
+	node.Leaf = leaf
+	return node, nil
+}
+
+// readLNodeFromMemMap
+//	Reads an node in the mmcmap from the serialized memory map.
+func (mariInst *Mari) readLNodeFromMemMap(startOffset uint64) (node *MariLNode, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			node = nil
+			err = errors.New("error reading node from mem map")
+		}
+	}()
+	
+	endOffsetIdx := startOffset + NodeEndOffsetIdx
+	mMap := mariInst.Data.Load().(MMap)
+	sEndOffset := mMap[endOffsetIdx:endOffsetIdx + OffsetSize]
+
+	endOffset, decEndOffErr := deserializeUint64(sEndOffset)
+	if decEndOffErr != nil { return nil, decEndOffErr }
+
+	sNode := mMap[startOffset:endOffset + 1]
+	node, decNodeErr := mariInst.deserializeLNode(sNode)
+	if decNodeErr != nil { return nil, decNodeErr }
+
+	return node, nil
+}
+
 // storeNodeAsPointer
 //	Store a mmcmap node as an unsafe pointer.
 func storeINodeAsPointer(node *MariINode) *unsafe.Pointer {
 	ptr := unsafe.Pointer(node)
 	return &ptr
+}
+
+// writeINodeToMemMap
+//	Serializes and writes an internal node instance to the memory map.
+func (mariInst *Mari) writeINodeToMemMap(node *MariINode) (offset uint64, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			offset = 0
+			err = errors.New("error writing new path to mmap")
+		}
+	}()
+
+	sNode, serializeErr := node.serializeINode(false)
+	if serializeErr != nil { return 0, serializeErr	}
+
+	mMap := mariInst.Data.Load().(MMap)
+	copy(mMap[node.StartOffset:node.Leaf.StartOffset], sNode)
+
+	flushErr := mariInst.flushRegionToDisk(node.StartOffset, node.EndOffset)
+	if flushErr != nil { return 0, flushErr } 
+	
+	lEndOffset, writErr := mariInst.writeLNodeToMemMap(node.Leaf)
+	if writErr != nil { return 0, writErr }
+
+	return lEndOffset, nil
+}
+
+// writeLNodeToMemMap
+//	Serializes and writes a MariNode instance to the memory map.
+func (mariInst *Mari) writeLNodeToMemMap(node *MariLNode) (offset uint64, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			offset = 0
+			err = errors.New("error writing new path to mmap")
+		}
+	}()
+
+	sNode, serializeErr := node.serializeLNode()
+	if serializeErr != nil { return 0, serializeErr	}
+
+	endOffset := node.determineEndOffsetLNode()
+	mMap := mariInst.Data.Load().(MMap)
+	copy(mMap[node.StartOffset:endOffset + 1], sNode)
+
+	flushErr := mariInst.flushRegionToDisk(node.StartOffset, endOffset)
+	if flushErr != nil { return 0, flushErr } 
+	
+	return endOffset + 1, nil
 }
 
 // writeNodesToMemMap

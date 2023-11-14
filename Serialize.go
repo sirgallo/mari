@@ -7,9 +7,9 @@ import "errors"
 //============================================= Mari Serialization
 
 
-// SerializeMetaData
+// serializeMetaData
 //	Serialize the metadata at the first 0-23 bytes of the memory map. Version is 8 bytes and Root Offset is 8 bytes.
-func (meta *MariMetaData) SerializeMetaData() []byte {
+func (meta *MariMetaData) serializeMetaData() []byte {
 	versionBytes := make([]byte, OffsetSize)
 	binary.LittleEndian.PutUint64(versionBytes, meta.Version)
 
@@ -23,30 +23,9 @@ func (meta *MariMetaData) SerializeMetaData() []byte {
 	return append(versionBytes, offsets...)
 }
 
-// DeserializeMetaData
-//	Deserialize the byte representation of the meta data object in the memory mapped file.
-func DeserializeMetaData(smeta []byte) (*MariMetaData, error) {
-	if len(smeta) != 24 { return nil, errors.New("meta data incorrect size") }
-
-	versionBytes := smeta[MetaVersionIdx:MetaRootOffsetIdx]
-	version := binary.LittleEndian.Uint64(versionBytes)
-
-	rootOffsetBytes := smeta[MetaRootOffsetIdx:MetaEndSerializedOffset]
-	rootOffset := binary.LittleEndian.Uint64(rootOffsetBytes)
-
-	nextStartOffsetBytes := smeta[MetaEndSerializedOffset:]
-	nextStartOffset := binary.LittleEndian.Uint64(nextStartOffsetBytes)
-
-	return &MariMetaData{
-		Version: version,
-		RootOffset: rootOffset,
-		NextStartOffset: nextStartOffset,
-	}, nil
-}
-
-// DeserializeINode
+// deserializeINode
 //	Deserialize the byte representation of an internal in the memory mapped file.
-func (mmcMap *Mari) DeserializeINode(snode []byte) (*MariINode, error) {
+func (mmcMap *Mari) deserializeINode(snode []byte) (*MariINode, error) {
 	version, decVersionErr := deserializeUint64(snode[NodeVersionIdx:NodeStartOffsetIdx])
 	if decVersionErr != nil { return nil, decVersionErr }
 
@@ -94,9 +73,9 @@ func (mmcMap *Mari) DeserializeINode(snode []byte) (*MariINode, error) {
 	}, nil
 }
 
-// DeserializeLNode
+// deserializeLNode
 //	Deserialize the byte representation of a leaf node in the memory mapped file.
-func (mmcMap *Mari) DeserializeLNode(snode []byte) (*MariLNode, error) {
+func (mmcMap *Mari) deserializeLNode(snode []byte) (*MariLNode, error) {
 	version, decVersionErr := deserializeUint64(snode[NodeVersionIdx:NodeStartOffsetIdx])
 	if decVersionErr != nil { return nil, decVersionErr }
 
@@ -122,10 +101,9 @@ func (mmcMap *Mari) DeserializeLNode(snode []byte) (*MariLNode, error) {
 	}, nil
 }
 
-
-// SerializePathToMemMap
+// serializePathToMemMap
 //	Serializes a path copy by starting at the root, getting the latest available offset in the memory map, and recursively serializing.
-func (mmcMap *Mari) SerializePathToMemMap(root *MariINode, nextOffsetInMMap uint64) ([]byte, error) {
+func (mmcMap *Mari) serializePathToMemMap(root *MariINode, nextOffsetInMMap uint64) ([]byte, error) {
 	serializedPath, serializeErr := mmcMap.serializeRecursive(root, 0, nextOffsetInMMap)
 	if serializeErr != nil { return nil, serializeErr }
 
@@ -165,13 +143,13 @@ func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64
 
 	if len(childrenOnPaths) > 0 { sNode = append(sNode, childrenOnPaths...) }
 
-	mmcMap.NodePool.PutLNode(node.Leaf)
-	mmcMap.NodePool.PutINode(node)
+	mmcMap.NodePool.putLNode(node.Leaf)
+	mmcMap.NodePool.putINode(node)
 	
 	return sNode, nil
 }
 
-// SerializeLNode
+// serializeLNode
 //	Serialize a leaf node in the mariInst. Append the key and value together since both are already byte slices.
 func (node *MariLNode) serializeLNode() ([]byte, error) {
 	var sLNode []byte
@@ -194,7 +172,7 @@ func (node *MariLNode) serializeLNode() ([]byte, error) {
 	return sLNode, nil
 }
 
-// SerializeINode
+// serializeINode
 //	Serialize an internal node in the mariInst. This involves scanning the children nodes and serializing the offset in the memory map for each one.
 func (node *MariINode) serializeINode(serializePath bool) ([]byte, error) {
 	var sINode []byte
