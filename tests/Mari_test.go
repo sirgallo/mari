@@ -88,7 +88,7 @@ func TestMari(t *testing.T) {
 
 	t.Run("Test Mari Get", func(t *testing.T) {
 		expVal1 := "world"
-		val1, getErr = mariInst.Get([]byte("hello"))
+		val1, getErr = mariInst.Get([]byte("hello"), nil)
 		if getErr != nil { t.Errorf("error getting val1: %s", getErr.Error()) }
 		if val1 == nil { t.Error("val actually nil") }
 
@@ -96,7 +96,7 @@ func TestMari(t *testing.T) {
 		if string(val1.Value) != expVal1 { t.Errorf("val 1 does not match expected val 1: actual(%s), expected(%s)\n", val1.Value, expVal1) }
 
 		expVal2 := "wow!"
-		val2, getErr = mariInst.Get([]byte("new"))
+		val2, getErr = mariInst.Get([]byte("new"), nil)
 		if getErr != nil { t.Errorf("error getting val2: %s", getErr.Error()) }
 		if val2 == nil { t.Error("val actually nil") }
 
@@ -104,7 +104,7 @@ func TestMari(t *testing.T) {
 		if string(val2.Value) != expVal2 { t.Errorf("val 2 does not match expected val 2: actual(%s), expected(%s)\n", val2.Value, expVal2) }
 
 		expVal3 := "hello"
-		val3, getErr = mariInst.Get([]byte("asdf"))
+		val3, getErr = mariInst.Get([]byte("asdf"), nil)
 		if getErr != nil { t.Errorf("error getting val3: %s", getErr.Error()) }
 		if val3 == nil { t.Error("val actually nil") }
 		
@@ -112,7 +112,7 @@ func TestMari(t *testing.T) {
 		if string(val3.Value) != expVal3 { t.Errorf("val 3 does not match expected val 3: actual(%s), expected(%s)", val3.Value, expVal3) }
 
 		expVal4 := "123123"
-		val4, getErr = mariInst.Get([]byte("asdfasdf"))
+		val4, getErr = mariInst.Get([]byte("asdfasdf"), nil)
 		if getErr != nil { t.Errorf("error getting val4: %s", getErr.Error()) }
 		if val4 == nil { t.Error("val actually nil") }
 

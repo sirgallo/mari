@@ -101,6 +101,13 @@ type MariNodePool struct {
 	LNodePool *sync.Pool
 }
 
+type MariOpTransform = func(kvPair *KeyValuePair) *KeyValuePair
+
+type MariRangeOpts struct {
+	MinVersion *uint64
+	Transform *MariOpTransform
+}
+
 // DefaultPageSize is the default page size set by the underlying OS. Usually will be 4KiB
 var DefaultPageSize = os.Getpagesize()
 

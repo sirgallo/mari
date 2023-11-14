@@ -196,7 +196,12 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 //	It gets the latest version of the ordered array mapped trie and starts from that offset in the mem-map.
 //	The operation begins at the root of the trie and traverses down the path to the key.
 //	Get is concurrent since it will perform the operation on an existing path, so new paths can be written at the same time with new versions.
-func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
+func (mariInst *Mari) Get(key []byte, transform *MariOpTransform) (*KeyValuePair, error) {
+	var newTransform MariOpTransform
+	if transform != nil {
+		newTransform = *transform
+	} else { newTransform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
+	
 	for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
 
 	mariInst.RWResizeLock.RLock()
@@ -209,7 +214,7 @@ func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
 	if readRootErr != nil { return nil, readRootErr }
 
 	rootPtr := unsafe.Pointer(currRoot)
-	return mariInst.getRecursive(&rootPtr, key, 0)
+	return mariInst.getRecursive(&rootPtr, key, 0, newTransform)
 }
 
 // getRecursive
@@ -220,7 +225,7 @@ func (mariInst *Mari) Get(key []byte) (*KeyValuePair, error) {
 //	If the child node is a leaf node and the key to be searched for is the same as the key of the child node, the value has been found.
 //	Since the trie utilizes path copying, any threads modifying the trie are modifying copies so it the get operation returns the value at the point in time of the get operation.
 //	If the node is node a leaf node, but instead an internal node, recurse down the path to the next level to the child node in the position of the child node array and repeat the above.
-func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int) (*KeyValuePair, error) {
+func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int, transform MariOpTransform) (*KeyValuePair, error) {
 	currNode := loadINodeFromPointer(node)
 	
 	getKeyVal := func() *KeyValuePair {
@@ -232,10 +237,10 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int) 
 	}
 
 	if len(key) == level {
-		if bytes.Equal(key, currNode.Leaf.Key) { return getKeyVal(), nil }
+		if bytes.Equal(key, currNode.Leaf.Key) { return transform(getKeyVal()), nil }
 		return nil, nil
 	} else {
-		if bytes.Equal(key, currNode.Leaf.Key) { return getKeyVal(), nil }
+		if bytes.Equal(key, currNode.Leaf.Key) { return transform(getKeyVal()), nil }
 		
 		index := getIndexForLevel(key, level)
 		
@@ -250,7 +255,7 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int) 
 				if desErr != nil { return nil, desErr }
 
 				childPtr := storeINodeAsPointer(childNode)
-				return mariInst.getRecursive(childPtr, key, level + 1)
+				return mariInst.getRecursive(childPtr, key, level + 1, transform)
 		}
 	}
 }

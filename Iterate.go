@@ -12,11 +12,17 @@ import "unsafe"
 //	Since the array mapped trie is sorted, the iterate function starts at the startKey and recursively builds the result set up the specified end.
 //	A minimum version can be provided which will limit results to the min version forward.
 //	If nil is passed for the minimum version, the earliest version in the structure will be used.
-func (mariInst *Mari) Iterate(startKey []byte, totalResults int, minVersion *uint64) ([]*KeyValuePair, error) {
+func (mariInst *Mari) Iterate(startKey []byte, totalResults int, opts *MariRangeOpts) ([]*KeyValuePair, error) {
 	var minV uint64 
-	if minVersion != nil {
-		minV = *minVersion
+	var transform MariOpTransform
+	
+	if opts != nil && opts.MinVersion != nil {
+		minV = *opts.MinVersion
 	} else { minV = 0 }
+
+	if opts != nil && opts.Transform != nil {
+		transform = *opts.Transform
+	} else { transform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
 
 	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 	if loadROffErr != nil { return nil, loadROffErr }
@@ -27,15 +33,20 @@ func (mariInst *Mari) Iterate(startKey []byte, totalResults int, minVersion *uin
 	accumulator := []*KeyValuePair{}
 	rootPtr := storeINodeAsPointer(currRoot)
 
-	kvPairs, iterErr := mariInst.iterateRecursive(rootPtr, minV, startKey, totalResults, 0, accumulator)
+	kvPairs, iterErr := mariInst.iterateRecursive(rootPtr, minV, startKey, totalResults, 0, accumulator, transform)
 	if iterErr != nil { return nil, iterErr }
 
 	return kvPairs, nil
 }
 
 // iterateRecursive
-//	Essentially create a cursor that begins at the specified start key and recursively builds an accumulator of key value pairs until it reaches the max size.
-func (mariInst *Mari) iterateRecursive(node *unsafe.Pointer, minVersion uint64, startKey []byte, totalResults, level int, acc []*KeyValuePair) ([]*KeyValuePair, error) {
+//	Essentially create a cursor that begins at the specified start key.
+//	Recursively builds an accumulator of key value pairs until it reaches the max size.
+func (mariInst *Mari) iterateRecursive(
+	node *unsafe.Pointer, minVersion uint64, 
+	startKey []byte, totalResults, level int, 
+	acc []*KeyValuePair, transform MariOpTransform,
+	) ([]*KeyValuePair, error) {
 	genKeyValPair := func(node *MariINode) *KeyValuePair {
 		kvPair := &KeyValuePair {
 			Version: node.Leaf.Version,
@@ -56,13 +67,16 @@ func (mariInst *Mari) iterateRecursive(node *unsafe.Pointer, minVersion uint64, 
 				return acc, nil
 			case startKey != nil && len(startKey) > level:
 				if currNode.Leaf.Version >= minVersion && bytes.Compare(currNode.Leaf.Key, startKey) == 1 {
-					acc = append(acc, genKeyValPair(currNode))
+					acc = append(acc, transform(genKeyValPair(currNode)))
 				} else { return acc, nil }
 
 				startKeyIndex := getIndexForLevel(startKey, level)
 				startKeyPos = mariInst.getPosition(currNode.Bitmap, startKeyIndex, level)
 			default:
-				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { acc = append(acc, genKeyValPair(currNode)) }
+				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { 
+					acc = append(acc, transform(genKeyValPair(currNode)))
+				}
+
 				startKeyPos = 0
 		}
 	} else {
@@ -84,10 +98,10 @@ func (mariInst *Mari) iterateRecursive(node *unsafe.Pointer, minVersion uint64, 
 
 			switch {
 				case currPos == startKeyPos && startKey != nil:
-					acc, iterErr = mariInst.iterateRecursive(childPtr, minVersion, startKey, totalResults, level + 1, acc)
+					acc, iterErr = mariInst.iterateRecursive(childPtr, minVersion, startKey, totalResults, level + 1, acc, transform)
 					if iterErr != nil { return nil, iterErr }
 				default:
-					acc, iterErr = mariInst.iterateRecursive(childPtr, minVersion, nil, totalResults, level + 1, acc)
+					acc, iterErr = mariInst.iterateRecursive(childPtr, minVersion, nil, totalResults, level + 1, acc, transform)
 					if iterErr != nil { return nil, iterErr }
 			}
 

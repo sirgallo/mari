@@ -44,15 +44,13 @@ func TestMariSingleThreadOperations(t *testing.T) {
 			_, putErr := singleThreadTestMap.Put(val.Key, val.Value)
 			if putErr != nil { t.Errorf("error on mari put: %s", putErr.Error()) }
 		}
-
-		// singleThreadTestMap.PrintChildren()
 	})
 
 	t.Run("Test Read Operations", func(t *testing.T) {
 		defer singleThreadTestMap.Close()
 		
 		for _, val := range stkeyValPairs {
-			kvPair, getErr := singleThreadTestMap.Get(val.Key)
+			kvPair, getErr := singleThreadTestMap.Get(val.Key, nil)
 			if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 			
 			if ! bytes.Equal(kvPair.Value, val.Value) {
@@ -71,7 +69,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		}
 
 		for _, val := range stkeyValPairs {
-			kvPair, getErr := singleThreadTestMap.Get(val.Key)
+			kvPair, getErr := singleThreadTestMap.Get(val.Key, nil)
 			if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 			if ! bytes.Equal(kvPair.Key, val.Key) || ! bytes.Equal(kvPair.Value, val.Value) {
@@ -92,7 +90,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		t.Log("len kvPairs", len(kvPairs))
 		
 		isSorted := IsSorted(kvPairs)
-		if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+		if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {
@@ -115,7 +113,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		t.Log("len kvPairs", len(kvPairs))
 		
 		isSorted := IsSorted(kvPairs)
-		if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+		if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
 	})
 
 	t.Run("Test Delete Operations", func(t *testing.T) {

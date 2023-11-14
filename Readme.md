@@ -49,17 +49,44 @@ func main() {
   if putErr != nil { panic(putErr.Error()) }
 
   // get a value in mari
-  fetched, getErr := mariInst.Get(key)
+  // if transform is nil, kvPair is returned as is
+  fetched, getErr := mariInst.Get(key, nil)
   if getErr != nil { panic(getErr.Error()) }
 
   // get a range of key-value pairs from a minimum version
-  // if minimum version is nil, version is set to the earliest version
+  // if opts is nil, version is set to the earliest version and transform will not be used
   rangekvPairs, rangeErr := mariInst.Range([]("hello"), []("world"), nil)
   if rangeErr != nil { panic(rangeErr.Error()) }
 
   // get a set of ordered iterated key value pairs from a start key to the total result size
-  // if minimum version is nil, version is set to the earliest version
+  // if opts is nil, version is set to the earliest version and transform will not be used
   iteratedkvPairs, iterErr := mariInst.Iterate([]("hello"), 10000, nil)
+  if iterErr != nil { panic(iterErr.Error()) }
+
+  // create a transformer to process results before being returned
+  transform := func(kvPair *mari.KeyValuePair) *mari.KeyValuePair {
+    newValue := kvPair.Value + kvPair.Value
+    kvPair.Value = newValue
+
+    return kvPair
+  }
+
+  // opts for range + iteration functions
+  // can also contain MinVersion for the minimum version
+  opts := *mari.MariRangeOpts{
+    Transform: transform
+  }
+
+  // get a transformed key-value in mari
+  transformedFetched, getTransformedErr := mariInst.Get(key, transform)
+  if getErr != nil { panic(getErr.Error()) }
+
+  // get a range of key value pairs with transformed values
+  transformedRangePairs, transformedRangeErr := mariInst.Range([]("hello"), []("world"), opts)
+  if rangeErr != nil { panic(rangeErr.Error()) }
+
+  // get a set of ordered iterated key value pairs with transformed values
+  transformedIterPairs, transformedIterErr := mariInst.Iterate([]("hello"), 50000, opts)
   if iterErr != nil { panic(iterErr.Error()) }
 
   // delete a value in mari

@@ -70,7 +70,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer retrieveWG.Done()
 
 				for _, val := range chunk {
-					kvPair, getErr := concurrentMariInst.Get(val.Key)
+					kvPair, getErr := concurrentMariInst.Get(val.Key, nil)
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 					if ! bytes.Equal(kvPair.Key, val.Key) || ! bytes.Equal(kvPair.Value, val.Value) {
@@ -100,7 +100,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer retrieveWG.Done()
 
 				for _, val := range chunk {
-					kvPair, getErr := concurrentMariInst.Get(val.Key)
+					kvPair, getErr := concurrentMariInst.Get(val.Key, nil)
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 					if ! bytes.Equal(kvPair.Key, val.Key) || ! bytes.Equal(kvPair.Value, val.Value) {
@@ -132,7 +132,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 
 				isSorted := IsSorted(kvPairs)
-				if ! isSorted { t.Errorf("key value pairs are not in sorted order1: %t", isSorted) }
+				if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
 			}()
 		}
 

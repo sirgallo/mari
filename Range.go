@@ -14,13 +14,19 @@ import "unsafe"
 //	It then recursively checks each index, traversing the paths and building the sorted results.
 //	A minimum version can be provided which will limit results to the min version forward.
 //	If nil is passed for the minimum version, the earliest version in the structure will be used.
-func (mariInst *Mari) Range(startKey, endKey []byte, minVersion *uint64) ([]*KeyValuePair, error) {
+func (mariInst *Mari) Range(startKey, endKey []byte, opts *MariRangeOpts) ([]*KeyValuePair, error) {
 	if bytes.Compare(startKey, endKey) == 1 { return nil, errors.New("start key is larger than end key") }
 
 	var minV uint64 
-	if minVersion != nil {
-		minV = *minVersion
+	var transform MariOpTransform
+
+	if opts != nil && opts.MinVersion != nil {
+		minV = *opts.MinVersion
 	} else { minV = 0 }
+
+	if opts != nil && opts.Transform != nil {
+		transform = *opts.Transform
+	} else { transform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
 
 	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 	if loadROffErr != nil { return nil, loadROffErr }
@@ -29,7 +35,7 @@ func (mariInst *Mari) Range(startKey, endKey []byte, minVersion *uint64) ([]*Key
 	if readRootErr != nil { return nil, readRootErr }
 
 	rootPtr := storeINodeAsPointer(currRoot)
-	kvPairs, rangeErr := mariInst.rangeRecursive(rootPtr, minV, startKey, endKey, 0)
+	kvPairs, rangeErr := mariInst.rangeRecursive(rootPtr, minV, startKey, endKey, 0, transform)
 	if rangeErr != nil { return nil, rangeErr }
 
 	return kvPairs, nil
@@ -39,7 +45,11 @@ func (mariInst *Mari) Range(startKey, endKey []byte, minVersion *uint64) ([]*Key
 //	Limit the indexes to check in the range at level 0, and then recursively traverse the paths between the start and end index.
 //	On the start key path, continue to use the start index to check the level to see which index forward should be recursively checked.
 //	The opposite is done for the end key path.
-func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, startKey, endKey []byte, level int) ([]*KeyValuePair, error) {
+func (mariInst *Mari) rangeRecursive(
+	node *unsafe.Pointer, minVersion uint64, 
+	startKey, endKey []byte, level int, 
+	transform MariOpTransform,
+) ([]*KeyValuePair, error) {
 	genKeyValPair := func(node *MariINode) *KeyValuePair {
 		kvPair := &KeyValuePair {
 			Version: node.Leaf.Version,
@@ -59,7 +69,7 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 		switch {
 			case startKey != nil && len(startKey) > level:
 				if currNode.Leaf.Version >= minVersion && bytes.Compare(currNode.Leaf.Key, startKey) == 1 {
-					sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode))
+					sortedKvPairs = append(sortedKvPairs, transform(genKeyValPair(currNode)))
 				} else { return sortedKvPairs, nil }
 
 				startKeyIndex := getIndexForLevel(startKey, level)
@@ -67,14 +77,14 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 				endKeyPos = len(currNode.Children)
 			case endKey != nil && len(endKey) > level:
 				if currNode.Leaf.Version >= minVersion && bytes.Compare(currNode.Leaf.Key, endKey) == -1 {
-					sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode))
+					sortedKvPairs = append(sortedKvPairs, transform(genKeyValPair(currNode)))
 				} else { return sortedKvPairs, nil }
 
 				startKeyPos = 0
 				endKeyIndex := getIndexForLevel(endKey, level)
 				endKeyPos = mariInst.getPosition(currNode.Bitmap, endKeyIndex, level)
 			default:
-				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { sortedKvPairs = append(sortedKvPairs, genKeyValPair(currNode)) }
+				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { sortedKvPairs = append(sortedKvPairs, transform(genKeyValPair(currNode))) }
 
 				startKeyPos = 0
 				endKeyPos = len(currNode.Children)
@@ -97,7 +107,7 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 				if getChildErr != nil { return nil, getChildErr}
 				childPtr := storeINodeAsPointer(childNode)
 
-				kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, startKey, endKey, level + 1)
+				kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, startKey, endKey, level + 1, transform)
 				if rangeErr != nil { return nil, rangeErr }
 
 				if len(kvPairs) > 0 { sortedKvPairs = append(sortedKvPairs, kvPairs...) }
@@ -109,13 +119,13 @@ func (mariInst *Mari) rangeRecursive(node *unsafe.Pointer, minVersion uint64, st
 		
 					switch {
 						case idx == 0 && startKey != nil:
-							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, startKey, nil, level + 1)
+							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, startKey, nil, level + 1, transform)
 							if rangeErr != nil { return nil, rangeErr }
 						case idx == endKeyPos && endKey != nil:
-							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, nil, endKey, level + 1)
+							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, nil, endKey, level + 1, transform)
 							if rangeErr != nil { return nil, rangeErr }
 						default:
-							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, nil, nil, level + 1)
+							kvPairs, rangeErr = mariInst.rangeRecursive(childPtr, minVersion, nil, nil, level + 1, transform)
 							if rangeErr != nil { return nil, rangeErr }
 					}
 		

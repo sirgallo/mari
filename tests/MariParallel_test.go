@@ -80,7 +80,7 @@ func TestMariParallelReadWrites(t *testing.T) {
 				defer pRetrieveWG.Done()
 
 				for _, val := range chunk {
-					value, getErr := parallelMariInst.Get(val.Key)
+					value, getErr := parallelMariInst.Get(val.Key, nil)
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 					if ! bytes.Equal(value.Value, val.Value) {
