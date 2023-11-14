@@ -111,6 +111,6 @@ The `mmap` function utilizes `golang.org/x/sys/unix`, so the mmap functionality 
 
 ## Sources
 
-[COMap](./COMap.md)
+[COMap](./docs/COMap.md)
 
-[Concepts](./Concepts.md)
+[Concepts](./docs/Concepts.md)
