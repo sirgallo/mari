@@ -26,10 +26,9 @@ func (mariInst *Mari) copyINode(node *MariINode) *MariINode {
 	return nodeCopy
 }
 
-// determineEndOffset
-//	Determine the end offset of a serialized MariNode.
-//	For Leaf Nodes, this will be the start offset through the key index, plus the length of the key and the length of the value.
-//	For Internal Nodes, this will be the start offset through the children index, plus (number of children * 8 bytes).
+// determineEndOffsetINode
+//	Determine the end offset of a serialized MariINode.
+//	This will be the start offset through the children index, plus (number of children * 8 bytes).
 func (node *MariINode) determineEndOffsetINode() uint64 {
 	nodeEndOffset := node.StartOffset
 
@@ -49,6 +48,9 @@ func (node *MariINode) determineEndOffsetINode() uint64 {
 	return nodeEndOffset - 1
 }
 
+// determineEndOffsetLNode
+//	Determine the end offset of a serialized MariLNode.
+//	This will be the start offset through the key index, plus the length of the key and the length of the value.
 func (node *MariLNode) determineEndOffsetLNode() uint64 {
 	nodeEndOffset := node.StartOffset
 	if node.Key != nil {
