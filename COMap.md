@@ -122,6 +122,16 @@ func (mariInst *Mari) getPosition(bitMap [8]uint32, index byte, level int) int {
 `isolatedBits` is all of the non-zero bits right of the index, which can be calculated by is applying a mask to the bitMap at that particular node. The mask is calculated from all of from the start of the sparse index right.
 
 
+### Compact Paths
+
+One optimization made to the data structure is the use of compact paths. When a key-value pair is inserted into the sorted order `AMT`, instead of creating a node for the each byte in the key, the key is terminated when it finds that there are no more children beyond the level it is at, and on later inserts the key-value pair can be shifted down the branch if necessary. This makes for a more compact, flat data structure, where most key-value pairs will exist on the same level within the trie, similar to a B+Tree. This optimization saves valuable wasted space for empty nodes where there are no key value pairs and is a significant factor in the overall performance of `mari`.
+
+
+### Path Copying
+
+`mari` implements full path copying. As an operation traverses down the path to the key, on inserts/deletes it will make a copy of the current node and modify the copy instead of modifying the node in place. This makes Mari [persistent](https://en.wikipedia.org/wiki/Persistent_data_structure). The modified node causes all parent nodes to point to it by cascading the changes up the path back to the root of the trie. This is done by passing a copy of the node being looked at, and then performing compare and swap back up the path. If the compare and swap operation fails, the copy is discarded and the operation retries back at the root.
+
+
 ### Table Resizing
 
 #### Extend Table
@@ -164,11 +174,6 @@ func shrinkTable(orig []*MariINode, bitMap [8]uint32, pos int) []*MariINode {
 	return newTable
 }
 ```
-
-
-### Path Copying
-
-`mari` implements full path copying. As an operation traverses down the path to the key, on inserts/deletes it will make a copy of the current node and modify the copy instead of modifying the node in place. This makes Mari [persistent](https://en.wikipedia.org/wiki/Persistent_data_structure). The modified node causes all parent nodes to point to it by cascading the changes up the path back to the root of the trie. This is done by passing a copy of the node being looked at, and then performing compare and swap back up the path. If the compare and swap operation fails, the copy is discarded and the operation retries back at the root.
 
 
 ## Refs
