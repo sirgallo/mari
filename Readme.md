@@ -1,6 +1,6 @@
 # Mari
 
-## A Concurrent, Persistent Key-Value Store
+## A Concurrent, Persistent, Embedded Key-Value Store
 
 
 ## Mari?
