@@ -14,6 +14,7 @@ import "unsafe"
 //	It then recursively checks each index, traversing the paths and building the sorted results.
 //	A minimum version can be provided which will limit results to the min version forward.
 //	If nil is passed for the minimum version, the earliest version in the structure will be used.
+// 	If nil is passed for the transformer, then the kv pair will be returned as is.
 func (mariInst *Mari) Range(startKey, endKey []byte, opts *MariRangeOpts) ([]*KeyValuePair, error) {
 	if bytes.Compare(startKey, endKey) == 1 { return nil, errors.New("start key is larger than end key") }
 

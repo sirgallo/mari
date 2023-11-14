@@ -12,6 +12,7 @@ import "unsafe"
 //	Since the array mapped trie is sorted, the iterate function starts at the startKey and recursively builds the result set up the specified end.
 //	A minimum version can be provided which will limit results to the min version forward.
 //	If nil is passed for the minimum version, the earliest version in the structure will be used.
+// 	If nil is passed for the transformer, then the kv pair will be returned as is.
 func (mariInst *Mari) Iterate(startKey []byte, totalResults int, opts *MariRangeOpts) ([]*KeyValuePair, error) {
 	var minV uint64 
 	var transform MariOpTransform

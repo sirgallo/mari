@@ -73,7 +73,7 @@ func main() {
 
   // opts for range + iteration functions
   // can also contain MinVersion for the minimum version
-  opts := *mari.MariRangeOpts{
+  opts := &mari.MariRangeOpts{
     Transform: transform
   }
 
