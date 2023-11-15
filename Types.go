@@ -13,6 +13,8 @@ type MMap []byte
 type MariOpts struct {
 	// Filepath: the path to the memory mapped file
 	Filepath string
+	// NodePoolSize: the total number of pre-allocated nodes to create in the node pool
+	NodePoolSize int64
 }
 
 // MariMetaData contains information related to where the root is located in the mem map and the version.
@@ -37,7 +39,7 @@ type MariINode struct {
 	bitmap [8]uint32
 	// LeafOffset: the offset of the leaf node associated with the current byte chunk
 	leaf *MariLNode
-	// Children: an array of child nodes, which are MariNodes. Location in the array is determined by the sparse index
+	// Children: an array of child nodes, which are MariINodes. Location in the array is determined by the sparse index
 	children []*MariINode
 }
 

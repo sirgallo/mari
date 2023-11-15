@@ -8,6 +8,7 @@ import mrand "math/rand"
 import "github.com/sirgallo/mari"
 
 
+const NODEPOOL_SIZE = 100000
 const NUM_WRITER_GO_ROUTINES = 1
 const NUM_READER_GO_ROUTINES = 100
 const INPUT_SIZE = 1000000

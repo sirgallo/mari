@@ -41,7 +41,12 @@ func main() {
 
   // initialize mari filepath
   filepath := filepath.Join(homedir, FILENAME)
-  opts := mari.MariOpts{ Filepath: filepath }
+  
+  // set options
+  opts := mari.MariOpts{ 
+    Filepath: filepath,
+    NodePoolSize: int64(1000000),
+  }
 
   // open mari
   mariInst, openErr := mari.Open(opts)
@@ -78,7 +83,7 @@ func main() {
   var iteratedkvPairs []*mari.KeyValuePair
   iterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var iterTxErr error
-    iteratedkvPairs, iterTxErr = mariInst.Iterate([]("hello"), 10000, nil)
+    iteratedkvPairs, iterTxErr = tx.Iterate([]("hello"), 10000, nil)
     if iterTxErr != nil { return iterTxErr }
 
     return nil
@@ -109,7 +114,7 @@ func main() {
 
   // opts for range + iteration functions
   // can also contain MinVersion for the minimum version
-  opts := &mari.MariRangeOpts{
+  rangeOpts := &mari.MariRangeOpts{
     Transform: transform
   }
 
@@ -129,7 +134,7 @@ func main() {
   var transformedRangePairs []*mari.KeyValuePair
   transformedRangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var rangeTxErr error
-    transformedRangePairs, rangeTxErr = tx.Range([]("hello"), []("world"), opts)
+    transformedRangePairs, rangeTxErr = tx.Range([]("hello"), []("world"), rangeOpts)
     if rangeTxErr != nil { return rangeTxErr }
 
     return nil
@@ -141,7 +146,7 @@ func main() {
   var transformedIterPairs []*mari.KeyValuePair
   transformedIterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var iterTxErr error
-    transformedIterPairs, iterTxErr = mariInst.Iterate([]("hello"), 10000, opts)
+    transformedIterPairs, iterTxErr = tx.Iterate([]("hello"), 10000, rangeOpts)
     if iterTxErr != nil { return iterTxErr }
 
     return nil

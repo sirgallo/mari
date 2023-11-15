@@ -14,7 +14,7 @@ import "github.com/sirgallo/utils"
 //	Then, the meta data is initialized and written to the first 0-23 bytes in the memory map.
 //	An initial root MariINode will also be written to the memory map as well.
 func Open(opts MariOpts) (*Mari, error) {
-	np := newMariNodePool(100000)	// let's initialize with 100,000 pre-allocated nodes
+	np := newMariNodePool(opts.NodePoolSize)	// let's initialize with 100,000 pre-allocated nodes
 
 	mariInst := &Mari{
 		opened: true,

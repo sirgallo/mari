@@ -21,7 +21,11 @@ var pInsertWG, pRetrieveWG sync.WaitGroup
 func setup() {
 	os.Remove(pTestPath)
 	
-	opts := mari.MariOpts{ Filepath: pTestPath }
+	opts := mari.MariOpts{ 
+		Filepath: pTestPath,
+		NodePoolSize: NODEPOOL_SIZE, 
+	}
+	
 	parallelMariInst, pInitMariErr = mari.Open(opts)
 	if pInitMariErr != nil {
 		parallelMariInst.Remove()

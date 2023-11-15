@@ -18,7 +18,11 @@ var stInitMariErr error
 func init() {
 	os.Remove(stTestPath)
 	
-	opts := mari.MariOpts{ Filepath: stTestPath }
+	opts := mari.MariOpts{ 
+		Filepath: stTestPath,
+		NodePoolSize: NODEPOOL_SIZE,
+	}
+	
 	singleThreadTestMap, stInitMariErr = mari.Open(opts)
 	if stInitMariErr != nil {
 		singleThreadTestMap.Remove()

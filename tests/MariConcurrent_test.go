@@ -21,7 +21,11 @@ var delWG, insertWG, iterWG, retrieveWG, rangeWG sync.WaitGroup
 func init() {
 	os.Remove(cTestPath)
 	
-	opts := mari.MariOpts{ Filepath: cTestPath }
+	opts := mari.MariOpts{ 
+		Filepath: cTestPath,
+		NodePoolSize: NODEPOOL_SIZE,
+	}
+
 	concurrentMariInst, initMariErr = mari.Open(opts)
 	if initMariErr != nil {
 		concurrentMariInst.Remove()
