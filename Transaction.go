@@ -46,7 +46,7 @@ func (mariInst *Mari) ReadTx(txOps func(tx *MariTx) error) error {
 //	Handles all read-write related operations.
 //	If the operation fails, the copied and modified path is discarded and the operation retries back at the root until completed.
 //	The operation begins at the latest known version of root, reads from the metadata in the memory map.
-//  The version of the copy is incremented and if the metadata is the same after the path copying has occured, the path is serialized and appended to the memory-map.
+//	The version of the copy is incremented and if the metadata is the same after the path copying has occured, the path is serialized and appended to the memory-map.
 //	The metadata is also being updated to reflect the new version and the new root offset.
 func (mariInst *Mari) UpdateTx(txOps func(tx *MariTx) error) error {
 	for {
