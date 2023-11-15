@@ -20,6 +20,7 @@ func init() {
 		Filepath: TestPath,
 		NodePoolSize: 100, 
 	}
+	
 	mariInst, initPCMapErr = mari.Open(opts)
 	if initPCMapErr != nil { panic(initPCMapErr.Error()) }
 
