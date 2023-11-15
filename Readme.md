@@ -93,7 +93,7 @@ func main() {
 
   // get a range of key-value pairs from a minimum version
   // if opts is nil, version is set to the earliest version and transform will not be used
-  var rangekvPairs []*mari.KeyValuePairs
+  var rangekvPairs []*mari.KeyValuePair
   rangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var rangeTxErr error
     rangekvPairs, rangeTxErr = tx.Range([]("hello"), []("world"), nil)
