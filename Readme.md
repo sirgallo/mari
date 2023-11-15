@@ -156,6 +156,24 @@ func main() {
 
   if transformedIterErr != nil { panic(iterErr.Error()) }
 
+  // perform a mixed read-write transaction
+  var mixedKvPair *mari.KeyValuePair
+  mixedErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
+    putTxErr := tx.Put([]byte("key1"), []byte("value1"))
+    if putTxErr != nil { return putTxErr }
+
+    putTxErr = tx.Put(]byte("key2"), []byte("value2"))
+    if putTxErr != nil { return putTxErr }
+
+    var getTxErr error
+    mixedKvPair, getTxErr = tx.Get(key)
+    if getTxErr != nil { return getTxErr }
+
+    return nil
+  })
+
+  if mixedErr != nil { panic(mixedErr.Error()) }
+
   // delete a value in mari
   delErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
     delTxErr := tx.Delete(key)
@@ -165,6 +183,8 @@ func main() {
   })
 
   if delErr != nil { panic(delErr.Error()) }
+
+  if mixedErr != nil { panic(mixedErr.Error()) }
 
   // get mari filesize
   fSize, sizeErr := mariInst.FileSize()
