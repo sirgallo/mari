@@ -105,17 +105,61 @@ hammingWeight(uint32 bits):
   return weight
 ```
 
+to get population count for all 8 uint32 bitmaps:
+```go
+func populationCount(bitmap [8]uint32) int {
+	popCount := 0
+
+	popCount += calculateHammingWeight(bitmap[7])
+	popCount += calculateHammingWeight(bitmap[6])
+	popCount += calculateHammingWeight(bitmap[5])
+	popCount += calculateHammingWeight(bitmap[4])
+	popCount += calculateHammingWeight(bitmap[3])
+	popCount += calculateHammingWeight(bitmap[2])
+	popCount += calculateHammingWeight(bitmap[1])
+	popCount += calculateHammingWeight(bitmap[0])
+
+	return popCount
+}
+```
+
 to calculate position:
 ```go
 func (mariInst *Mari) getPosition(bitMap [8]uint32, index byte, level int) int {
-	subBitmapIndex := index / 32
-	indexInSubBitmap := index % 32
+	subBitmapIndex := index >> 5
+	indexInSubBitmap := index & 0x1F
+	precedingSubBitmapsCount := 0
+	
+	if subBitmapIndex - 1 > 0 {
+		switch subBitmapIndex - 1 {
+			case 6:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[6])
+				fallthrough
+			case 5:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[5])
+				fallthrough
+			case 4:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[4])
+				fallthrough
+			case 3:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[3])
+				fallthrough
+			case 2:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[2])
+				fallthrough
+			case 1:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[1])
+				fallthrough
+			case 0:
+				precedingSubBitmapsCount += calculateHammingWeight(bitMap[0])
+		}
+	}
 
 	subBitmap := bitMap[subBitmapIndex]
 	mask := uint32((1 << uint32(indexInSubBitmap)) - 1)
 	isolatedBits := subBitmap & mask
 	
-	return calculateHammingWeight(isolatedBits)
+	return precedingSubBitmapsCount + calculateHammingWeight(isolatedBits)
 }
 ```
 
@@ -139,12 +183,8 @@ One optimization made to the data structure is the use of compact paths. When a 
 When a position in the new table is calculated for an inserted element, the original table needs to be resized, and a new row at that particular location will be added, maintaining the sorted nature from the sparse index. This is done using go array slices, and copying elements from the original to the new table.
 
 ```go
-func extendTable(orig []*MariINode, bitMap [8]uint32, pos int, newNode *MariINode) []*MariINode {
-	var tableSize int
-	for _, subBitmap := range bitMap {
-		tableSize += calculateHammingWeight(subBitmap)
-	}
-	
+func extendTable(orig []*MariINode, bitmap [8]uint32, pos int, newNode *MariINode) []*MariINode {
+	tableSize := populationCount(bitmap)
 	newTable := make([]*MariINode, tableSize)
 
 	copy(newTable[:pos], orig[:pos])
@@ -160,12 +200,8 @@ func extendTable(orig []*MariINode, bitMap [8]uint32, pos int, newNode *MariINod
 Similarly to extending, shrinking a table will remove a row at a particular index and then copy elements from the original table over to the new table.
 
 ```go
-func shrinkTable(orig []*MariINode, bitMap [8]uint32, pos int) []*MariINode {
-	var tableSize int 
-	for _, subBitmap := range bitMap {
-		tableSize += calculateHammingWeight(subBitmap)
-	}
-
+func shrinkTable(orig []*MariINode, bitmap [8]uint32, pos int) []*MariINode {
+	tableSize := populationCount(bitmap)
 	newTable := make([]*MariINode, tableSize)
 
 	copy(newTable[:pos], orig[:pos])

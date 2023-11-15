@@ -20,7 +20,6 @@ func init() {
 		Filepath: TestPath,
 		NodePoolSize: 100, 
 	}
-	
 	mariInst, initPCMapErr = mari.Open(opts)
 	if initPCMapErr != nil { panic(initPCMapErr.Error()) }
 
@@ -145,6 +144,36 @@ func TestMari(t *testing.T) {
 		})
 
 		if getErr != nil { t.Errorf("error getting val: %s", getErr.Error()) }
+	})
+
+	t.Run("Test Iterate Operation", func(t *testing.T) {
+		var kvPairs []*mari.KeyValuePair
+
+		iterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
+			var txIterErr error
+			kvPairs, txIterErr = tx.Iterate([]byte("hello"), 3, nil)
+			if txIterErr != nil { return txIterErr }
+
+			return nil
+		})
+
+		if iterErr != nil { t.Errorf("error on mari range: %s", iterErr.Error()) }
+
+		t.Log("keys in kv pairs", func() []string{
+			var keys []string
+			for _, kv := range kvPairs { 
+				keys = append(keys, string(kv.Key))
+			}
+
+			return keys
+		}())
+
+		isSorted := IsSorted(kvPairs)
+		t.Logf("is sorted: %t", isSorted)
+
+		if ! isSorted {
+			t.Errorf("key value pairs are not in sorted order: %t", isSorted)
+		}
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {

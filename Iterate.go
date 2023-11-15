@@ -33,17 +33,20 @@ func (mariInst *Mari) iterateRecursive(
 		switch {
 			case totalResults == len(acc):
 				return acc, nil
+			case len(startKey) == level:
+				if currNode.leaf.version >= minVersion { acc = append(acc, transform(genKeyValPair(currNode))) }
+				startKeyPos = 0
 			case startKey != nil && len(startKey) > level:
-				if currNode.leaf.version >= minVersion && bytes.Compare(currNode.leaf.key, startKey) == 1 {
-					acc = append(acc, transform(genKeyValPair(currNode)))
-				} else { return acc, nil }
+				if bytes.Compare(currNode.leaf.key, startKey) == 1 || bytes.Equal(currNode.leaf.key, startKey) {
+					if currNode.leaf.version >= minVersion { acc = append(acc, transform(genKeyValPair(currNode))) }
+				}
 
 				startKeyIndex := getIndexForLevel(startKey, level)
 				startKeyPos = mariInst.getPosition(currNode.bitmap, startKeyIndex, level)
 			default:
 				if currNode.leaf.version >= minVersion && len(currNode.leaf.key) > 0 { 
 					acc = append(acc, transform(genKeyValPair(currNode)))
-				}
+				} 
 
 				startKeyPos = 0
 		}
@@ -55,7 +58,7 @@ func (mariInst *Mari) iterateRecursive(
 	if len(currNode.children) > 0 {
 		currPos := startKeyPos
 
-		for totalResults > len(acc) || currPos > len(currNode.children) {
+		for totalResults > len(acc) && currPos < len(currNode.children) {
 			childOffset := currNode.children[currPos]
 
 			childNode, getChildErr := mariInst.getChildNode(childOffset, currNode.version)
@@ -73,7 +76,7 @@ func (mariInst *Mari) iterateRecursive(
 					if iterErr != nil { return nil, iterErr }
 			}
 
-			startKeyPos = startKeyPos + 1
+			currPos += 1
 		}
 	}
 
