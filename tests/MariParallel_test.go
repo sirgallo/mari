@@ -136,4 +136,7 @@ func TestMariParallelReadWrites(t *testing.T) {
 
 		pInsertWG.Wait()
 	})
+
+	pKeyValPairs = nil
+	t.Log("Done")
 }

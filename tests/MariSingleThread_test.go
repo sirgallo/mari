@@ -178,5 +178,6 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		t.Log("File Size In Bytes:", fSize)
 	})
 
+	stkeyValPairs = nil
 	t.Log("Done")
 }

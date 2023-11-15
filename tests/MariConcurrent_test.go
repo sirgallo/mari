@@ -15,7 +15,7 @@ var cTestPath = filepath.Join(os.TempDir(), "testconcurrent")
 var concurrentMariInst *mari.Mari
 var keyValPairs []KeyVal
 var initMariErr error
-var delWG, insertWG, iterWG, retrieveWG, rangeWG sync.WaitGroup
+var delWG, insertWG, iterWG, rangeWG, retrieveWG sync.WaitGroup
 
 
 func init() {
@@ -178,7 +178,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 	t.Run("Test Range Operation", func(t *testing.T) {
 		totalElements := uint64(0)
 
-		for range make([]int, NUM_READER_GO_ROUTINES) {
+		for range make([]int, NUM_RANGE_GO_ROUTINES) {
 			first, second, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
 			if randomErr != nil { t.Error("error generating random min max") }
 
@@ -250,5 +250,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 		t.Log("File Size In Bytes:", fSize)
 	})
 
+	keyValPairs = nil
 	t.Log("Done")
 }

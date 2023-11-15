@@ -8,9 +8,11 @@ import mrand "math/rand"
 import "github.com/sirgallo/mari"
 
 
+const TRANSACTION_CHUNK_SIZE = 10000
 const NODEPOOL_SIZE = 100000
 const NUM_WRITER_GO_ROUTINES = 1
 const NUM_READER_GO_ROUTINES = 1000
+const NUM_RANGE_GO_ROUTINES = 10
 const INPUT_SIZE = 1000000
 const ITERATE_SIZE = 50000
 const PWRITE_INPUT_SIZE = INPUT_SIZE / 5
@@ -64,4 +66,27 @@ func IsSorted(s []*mari.KeyValuePair) bool {
 	}
 
 	return true
+}
+
+func Chunk (array[]KeyVal, chunkSize int) ([][]KeyVal, error) {
+	if chunkSize <= 0 { return nil, errors.New("chunk size needs to be greater than 0") }
+	
+	var chunks [][]KeyVal
+	
+	if (len(array) <= chunkSize) { 
+		return append(chunks, array), nil
+	} else {
+		totalChunks := (len(array) / chunkSize) + 1
+
+		for idx := range make([]int, totalChunks - 1) {
+			start := idx * chunkSize
+			end := (idx + 1) * chunkSize
+			chunks = append(chunks, array[start:end])
+		}
+
+		startOfRemainder := (totalChunks - 1) * chunkSize
+		
+		if startOfRemainder < len(array) { return append(chunks, array[startOfRemainder:]), nil }
+		return chunks, nil
+	} 
 }
