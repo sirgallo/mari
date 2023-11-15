@@ -9,7 +9,7 @@ import "unsafe"
 
 
 // compareAndSwap
-//	Performs CAS opertion.
+//	Performs CAS operation.
 func (mariInst *Mari) compareAndSwap(node *unsafe.Pointer, currNode, nodeCopy *MariINode) bool {
 	if atomic.CompareAndSwapPointer(node, unsafe.Pointer(currNode), unsafe.Pointer(nodeCopy)) {
 		return true
