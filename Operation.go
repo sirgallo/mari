@@ -1,63 +1,11 @@
 package mari
 
 import "bytes"
-import "runtime"
-import "sync/atomic"
 import "unsafe"
 
 
 //============================================= Mari Operations
 
-
-// Put inserts or updates key-value pair into the ordered array mapped trie.
-//	The operation begins at the root of the trie and traverses through the tree until the correct location is found, copying the entire path.
-//	If the operation fails, the copied and modified path is discarded and the operation retries back at the root until completed.
-//	The operation begins at the latest known version of root, read from the metadata in the memory map. The version of the copy is incremented
-//	and if the metadata is the same after the path copying has occured, the path is serialized and appended to the memory-map, with the metadata
-//	also being updated to reflect the new version and the new root offset.
-func (mariInst *Mari) Put(key, value []byte) (bool, error) {
-	for {
-		for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
-		mariInst.RWResizeLock.RLock()
-
-		versionPtr, version, loadVErr := mariInst.loadMetaVersion()
-		if loadVErr != nil { return false, loadVErr }
-
-		if version == atomic.LoadUint64(versionPtr) {
-			_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
-			if loadROffErr != nil { return false, loadROffErr }
-	
-			currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
-			if readRootErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, readRootErr
-			}
-	
-			currRoot.Version = currRoot.Version + 1
-			rootPtr := storeINodeAsPointer(currRoot)
-			_, putErr := mariInst.putRecursive(rootPtr, key, value, 0)
-			if putErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, putErr
-			}
-
-			updatedRootCopy := loadINodeFromPointer(rootPtr)
-			ok, writeErr := mariInst.exclusiveWriteMmap(updatedRootCopy)
-			if writeErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, writeErr
-			}
-
-			if ok {
-				mariInst.RWResizeLock.RUnlock() 
-				return true, nil 
-			}
-		}
-
-		mariInst.RWResizeLock.RUnlock()
-		runtime.Gosched()
-	}
-}
 
 // putRecursive
 //	Attempts to traverse through the trie, locating the node at a given level to modify for the key-value pair.
@@ -191,32 +139,6 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 	return mariInst.compareAndSwap(node, currNode, nodeCopy), nil
 }
 
-// Get
-//	Attempts to retrieve the value for a key within the ordered array mapped trie.
-//	It gets the latest version of the ordered array mapped trie and starts from that offset in the mem-map.
-//	The operation begins at the root of the trie and traverses down the path to the key.
-//	Get is concurrent since it will perform the operation on an existing path, so new paths can be written at the same time with new versions.
-func (mariInst *Mari) Get(key []byte, transform *MariOpTransform) (*KeyValuePair, error) {
-	var newTransform MariOpTransform
-	if transform != nil {
-		newTransform = *transform
-	} else { newTransform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
-	
-	for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
-
-	mariInst.RWResizeLock.RLock()
-	defer mariInst.RWResizeLock.RUnlock()
-
-	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
-	if loadROffErr != nil { return nil, loadROffErr }
-
-	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
-	if readRootErr != nil { return nil, readRootErr }
-
-	rootPtr := unsafe.Pointer(currRoot)
-	return mariInst.getRecursive(&rootPtr, key, 0, newTransform)
-}
-
 // getRecursive
 //	Attempts to recursively retrieve a value for a given key within the ordered array mapped trie.
 //	For each node traversed to at each level the operation travels to, the sparse index is calculated for the hashed key.
@@ -257,56 +179,6 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int, 
 				childPtr := storeINodeAsPointer(childNode)
 				return mariInst.getRecursive(childPtr, key, level + 1, transform)
 		}
-	}
-}
-
-// Delete attempts to delete a key-value pair within the ordered array mapped trie.
-//	It starts at the root of the trie and recurses down the path to the key to be deleted.
-//	It first loads in the current metadata, and starts at the latest version of the root.
-//	The operation creates an entire, in-memory copy of the path down to the key, where if the metadata hasn't changed during the copy, will get exclusive
-//	write access to the memory-map, where the new path is serialized and appened to the end of the mem-map.
-//	If the operation succeeds truthy value is returned, otherwise the operation returns to the root to retry the operation.
-func (mariInst *Mari) Delete(key []byte) (bool, error) {
-	for {		
-		for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
-		mariInst.RWResizeLock.RLock()
-
-		versionPtr, version, loadROffErr := mariInst.loadMetaVersion()
-		if loadROffErr != nil { return false, loadROffErr }
-
-		if version == atomic.LoadUint64(versionPtr) {
-			_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
-			if loadROffErr != nil { return false, loadROffErr }
-
-			currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
-			if readRootErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, readRootErr
-			}
-
-			currRoot.Version = currRoot.Version + 1
-			rootPtr := storeINodeAsPointer(currRoot)
-			_, delErr := mariInst.deleteRecursive(rootPtr, key, 0)
-			if delErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, delErr
-			}
-
-			updatedRootCopy := loadINodeFromPointer(rootPtr)
-			ok, writeErr := mariInst.exclusiveWriteMmap(updatedRootCopy)
-			if writeErr != nil {
-				mariInst.RWResizeLock.RUnlock()
-				return false, writeErr
-			}
-
-			if ok { 
-				mariInst.RWResizeLock.RUnlock()
-				return true, nil 
-			}
-		}
-
-		mariInst.RWResizeLock.RUnlock()
-		runtime.Gosched()
 	}
 }
 
@@ -370,35 +242,4 @@ func (mariInst *Mari) deleteRecursive(node *unsafe.Pointer, key []byte, level in
 				return mariInst.compareAndSwap(node, currNode, nodeCopy), nil
 		}
 	}
-}
-
-// compareAndSwap
-//	Performs CAS opertion.
-func (mariInst *Mari) compareAndSwap(node *unsafe.Pointer, currNode, nodeCopy *MariINode) bool {
-	if atomic.CompareAndSwapPointer(node, unsafe.Pointer(currNode), unsafe.Pointer(nodeCopy)) {
-		return true
-	} else {
-		mariInst.NodePool.LNodePool.Put(nodeCopy.Leaf)
-		mariInst.NodePool.INodePool.Put(nodeCopy)
-
-		return false
-	}
-}
-
-// getChildNode
-//	Get the child node of an internal node.
-//	If the version is the same, set child as that node since it exists in the path.
-//	Otherwise, read the node from the memory map.
-func (mariInst *Mari) getChildNode(childOffset *MariINode, version uint64) (*MariINode, error) {
-	var childNode *MariINode
-	var desErr error
-
-	if childOffset.Version == version {
-		childNode = childOffset
-	} else {
-		childNode, desErr = mariInst.readINodeFromMemMap(childOffset.StartOffset)
-		if desErr != nil { return nil, desErr }
-	}
-
-	return childNode, nil
 }

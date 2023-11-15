@@ -46,7 +46,13 @@ func setup() {
 	fmt.Println("seeding parallel test mari")
 
 	for _, val := range initKeyValPairs {
-		_, putErr := parallelMariInst.Put(val.Key, val.Value)
+		putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
+			putTxErr := tx.Put(val.Key, val.Value)
+			if putTxErr != nil { return putTxErr }
+
+			return nil
+		})
+		
 		if putErr != nil { panic(putErr.Error()) }
 	}
 
@@ -80,11 +86,19 @@ func TestMariParallelReadWrites(t *testing.T) {
 				defer pRetrieveWG.Done()
 
 				for _, val := range chunk {
-					value, getErr := parallelMariInst.Get(val.Key, nil)
+					var kvPair *mari.KeyValuePair
+					getErr := parallelMariInst.ViewTx(func(tx *mari.MariTx) error {
+						var getTxErr error
+						kvPair, getTxErr = tx.Get(val.Key, nil)
+						if getTxErr != nil { return getTxErr }
+
+						return nil
+					})
+
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
-					if ! bytes.Equal(value.Value, val.Value) {
-						t.Errorf("actual value not equal to expected: actual(%s), expected(%s)", value.Value, val.Value)
+					if ! bytes.Equal(kvPair.Value, val.Value) {
+						t.Errorf("actual value not equal to expected: actual(%s), expected(%s)", kvPair.Value, val.Value)
 					}
 				}
 			}()
@@ -104,7 +118,13 @@ func TestMariParallelReadWrites(t *testing.T) {
 				defer pInsertWG.Done()
 
 				for _, val := range chunk {
-					_, putErr := parallelMariInst.Put(val.Key, val.Value)
+					putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
+						putTxErr := tx.Put(val.Key, val.Value)
+						if putTxErr != nil { return putTxErr }
+
+						return nil
+					})
+
 					if putErr != nil { t.Errorf("error on mari put: %s", putErr.Error()) }
 				}
 			}()

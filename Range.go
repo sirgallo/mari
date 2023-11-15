@@ -1,46 +1,11 @@
 package mari
 
 import "bytes"
-import "errors"
 import "unsafe"
 
 
 //============================================= Mari Range
 
-
-// Range
-//	Since the array mapped trie is sorted by nature, the range operation begins at the root of the trie.
-//	It checks the root bitmap and determines which indexes to check in the range.
-//	It then recursively checks each index, traversing the paths and building the sorted results.
-//	A minimum version can be provided which will limit results to the min version forward.
-//	If nil is passed for the minimum version, the earliest version in the structure will be used.
-// 	If nil is passed for the transformer, then the kv pair will be returned as is.
-func (mariInst *Mari) Range(startKey, endKey []byte, opts *MariRangeOpts) ([]*KeyValuePair, error) {
-	if bytes.Compare(startKey, endKey) == 1 { return nil, errors.New("start key is larger than end key") }
-
-	var minV uint64 
-	var transform MariOpTransform
-
-	if opts != nil && opts.MinVersion != nil {
-		minV = *opts.MinVersion
-	} else { minV = 0 }
-
-	if opts != nil && opts.Transform != nil {
-		transform = *opts.Transform
-	} else { transform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
-
-	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
-	if loadROffErr != nil { return nil, loadROffErr }
-
-	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
-	if readRootErr != nil { return nil, readRootErr }
-
-	rootPtr := storeINodeAsPointer(currRoot)
-	kvPairs, rangeErr := mariInst.rangeRecursive(rootPtr, minV, startKey, endKey, 0, transform)
-	if rangeErr != nil { return nil, rangeErr }
-
-	return kvPairs, nil
-}
 
 // rangeRecursive
 //	Limit the indexes to check in the range at level 0, and then recursively traverse the paths between the start and end index.

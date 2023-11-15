@@ -3,10 +3,10 @@ package mari
 import "os"
 import "sync"
 import "sync/atomic"
+import "unsafe"
 
 
-// MMap
-//	The byte array representation of the memory mapped file in memory.
+// MMap is the byte array representation of the memory mapped file in memory.
 type MMap []byte
 
 // MariOpts initialize the Mari
@@ -95,17 +95,31 @@ type MariNodePool struct {
 	MaxSize int64
 	// Size: the current number of allocated nodes in the node pool
 	Size int64
-	// Pool: the node pool that contains pre-allocated nodes
+	// INodePool: the node pool that contains pre-allocated internal nodes
 	INodePool *sync.Pool
-
+	// LNodePool: the node pool that contains pre-allocated leaf nodes
 	LNodePool *sync.Pool
 }
 
+// MariOpTransform is the function signature for transform functions, which modify results
 type MariOpTransform = func(kvPair *KeyValuePair) *KeyValuePair
 
+// MariRangeOpts contains options for iteration and range functions
 type MariRangeOpts struct {
+	// MinVersion: the min version to return when performing the scan
 	MinVersion *uint64
+	// Transform: the transform function
 	Transform *MariOpTransform
+}
+
+// MariTx represents a transaction on the store
+type MariTx struct {
+	// store: the mari instance to perform the transaction on
+	store *Mari
+	// root: the root of the trie on which to operate on
+	root *unsafe.Pointer
+	// isWrite: determines whether the transaction is read only or read-write
+	isWrite bool
 }
 
 // DefaultPageSize is the default page size set by the underlying OS. Usually will be 4KiB

@@ -7,39 +7,6 @@ import "unsafe"
 //============================================= Mari Iterate
 
 
-// Iterate
-//	Creates an ordered iterator starting at the given start key up to the range specified by total results.
-//	Since the array mapped trie is sorted, the iterate function starts at the startKey and recursively builds the result set up the specified end.
-//	A minimum version can be provided which will limit results to the min version forward.
-//	If nil is passed for the minimum version, the earliest version in the structure will be used.
-// 	If nil is passed for the transformer, then the kv pair will be returned as is.
-func (mariInst *Mari) Iterate(startKey []byte, totalResults int, opts *MariRangeOpts) ([]*KeyValuePair, error) {
-	var minV uint64 
-	var transform MariOpTransform
-	
-	if opts != nil && opts.MinVersion != nil {
-		minV = *opts.MinVersion
-	} else { minV = 0 }
-
-	if opts != nil && opts.Transform != nil {
-		transform = *opts.Transform
-	} else { transform = func(kvPair *KeyValuePair) *KeyValuePair { return kvPair } }
-
-	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
-	if loadROffErr != nil { return nil, loadROffErr }
-
-	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
-	if readRootErr != nil { return nil, readRootErr }
-
-	accumulator := []*KeyValuePair{}
-	rootPtr := storeINodeAsPointer(currRoot)
-
-	kvPairs, iterErr := mariInst.iterateRecursive(rootPtr, minV, startKey, totalResults, 0, accumulator, transform)
-	if iterErr != nil { return nil, iterErr }
-
-	return kvPairs, nil
-}
-
 // iterateRecursive
 //	Essentially create a cursor that begins at the specified start key.
 //	Recursively builds an accumulator of key value pairs until it reaches the max size.
@@ -47,7 +14,7 @@ func (mariInst *Mari) iterateRecursive(
 	node *unsafe.Pointer, minVersion uint64, 
 	startKey []byte, totalResults, level int, 
 	acc []*KeyValuePair, transform MariOpTransform,
-	) ([]*KeyValuePair, error) {
+) ([]*KeyValuePair, error) {
 	genKeyValPair := func(node *MariINode) *KeyValuePair {
 		kvPair := &KeyValuePair {
 			Version: node.Leaf.Version,

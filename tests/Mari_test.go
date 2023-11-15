@@ -31,98 +31,119 @@ func TestMari(t *testing.T) {
 	var val1, val2, val3, val4 *mari.KeyValuePair
 
 	t.Run("Test Mari Put", func(t *testing.T) {
-		_, putErr = mariInst.Put([]byte("hello"), []byte("world"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
+		putErr = mariInst.UpdateTx(func(tx *mari.MariTx) error {
+			putErr = tx.Put([]byte("hello"), []byte("world"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("new"), []byte("wow!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("again"), []byte("test!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("woah"), []byte("random entry"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("key"), []byte("Saturday!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("sup"), []byte("6"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("final"), []byte("the!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("asdfasdf"), []byte("add 10"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("asdfasdf"), []byte("123123"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("asd"), []byte("queue!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("fasdf"), []byte("interesting"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("yup"), []byte("random again!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("asdf"), []byte("hello"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("asdffasd"), []byte("uh oh!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("fasdfasdfasdfasdf"), []byte("error message"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("fasdfasdf"), []byte("info!"))
+			if putErr != nil { return putErr }
+	
+			putErr = tx.Put([]byte("woah"), []byte("done"))
+			if putErr != nil { return putErr }
 
-		_, putErr = mariInst.Put([]byte("new"), []byte("wow!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
+			return nil
+		})
 
-		_, putErr = mariInst.Put([]byte("again"), []byte("test!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("woah"), []byte("random entry"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("key"), []byte("Saturday!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("sup"), []byte("6"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("final"), []byte("the!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("asdfasdf"), []byte("add 10"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("asdfasdf"), []byte("123123"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("asd"), []byte("queue!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("fasdf"), []byte("interesting"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("yup"), []byte("random again!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("asdf"), []byte("hello"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("asdffasd"), []byte("uh oh!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("fasdfasdfasdfasdf"), []byte("error message"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("fasdfasdf"), []byte("info!"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
-
-		_, putErr = mariInst.Put([]byte("woah"), []byte("done"))
-		if putErr != nil { t.Errorf("error putting key in mari: %s", putErr.Error()) }
+		if putErr != nil { t.Errorf("error on udpate tx: %s\n", putErr.Error())}
 
 		t.Logf("mariInst after inserts")
 		mariInst.PrintChildren()
 	})
 
 	t.Run("Test Mari Get", func(t *testing.T) {
-		expVal1 := "world"
-		val1, getErr = mariInst.Get([]byte("hello"), nil)
-		if getErr != nil { t.Errorf("error getting val1: %s", getErr.Error()) }
-		if val1 == nil { t.Error("val actually nil") }
+		getErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+			expVal1 := "world"
+			val1, getErr = tx.Get([]byte("hello"), nil)
+			if getErr != nil { return getErr }
+			if val1 == nil { t.Error("val actually nil") }
+	
+			t.Logf("actual: %s, expected: %s", string(val1.Value), expVal1)
+			if string(val1.Value) != expVal1 { t.Errorf("val 1 does not match expected val 1: actual(%s), expected(%s)\n", val1.Value, expVal1) }
+	
+			expVal2 := "wow!"
+			val2, getErr = tx.Get([]byte("new"), nil)
+			if getErr != nil { return getErr }
+			if val2 == nil { t.Error("val actually nil") }
+	
+			t.Logf("actual: %s, expected: %s", val2.Value, expVal2)
+			if string(val2.Value) != expVal2 { t.Errorf("val 2 does not match expected val 2: actual(%s), expected(%s)\n", val2.Value, expVal2) }
+	
+			expVal3 := "hello"
+			val3, getErr = tx.Get([]byte("asdf"), nil)
+			if getErr != nil { return getErr }
+			if val3 == nil { t.Error("val actually nil") }
+			
+			t.Logf("actual: %s, expected: %s", val3.Value, expVal3)
+			if string(val3.Value) != expVal3 { t.Errorf("val 3 does not match expected val 3: actual(%s), expected(%s)", val3.Value, expVal3) }
+	
+			expVal4 := "123123"
+			val4, getErr = tx.Get([]byte("asdfasdf"), nil)
+			if getErr != nil { return getErr }
+			if val4 == nil { t.Error("val actually nil") }
+	
+			t.Logf("actual: %s, expected: %s", val4.Value, expVal4)
+			if string(val4.Value) != expVal4 { t.Errorf("val 4 does not match expected val 4: actual(%s), expected(%s)", val4.Value, expVal4) }
+			
+			return nil
+		})
 
-		t.Logf("actual: %s, expected: %s", string(val1.Value), expVal1)
-		if string(val1.Value) != expVal1 { t.Errorf("val 1 does not match expected val 1: actual(%s), expected(%s)\n", val1.Value, expVal1) }
-
-		expVal2 := "wow!"
-		val2, getErr = mariInst.Get([]byte("new"), nil)
-		if getErr != nil { t.Errorf("error getting val2: %s", getErr.Error()) }
-		if val2 == nil { t.Error("val actually nil") }
-
-		t.Logf("actual: %s, expected: %s", val2.Value, expVal2)
-		if string(val2.Value) != expVal2 { t.Errorf("val 2 does not match expected val 2: actual(%s), expected(%s)\n", val2.Value, expVal2) }
-
-		expVal3 := "hello"
-		val3, getErr = mariInst.Get([]byte("asdf"), nil)
-		if getErr != nil { t.Errorf("error getting val3: %s", getErr.Error()) }
-		if val3 == nil { t.Error("val actually nil") }
-		
-		t.Logf("actual: %s, expected: %s", val3.Value, expVal3)
-		if string(val3.Value) != expVal3 { t.Errorf("val 3 does not match expected val 3: actual(%s), expected(%s)", val3.Value, expVal3) }
-
-		expVal4 := "123123"
-		val4, getErr = mariInst.Get([]byte("asdfasdf"), nil)
-		if getErr != nil { t.Errorf("error getting val4: %s", getErr.Error()) }
-		if val4 == nil { t.Error("val actually nil") }
-
-		t.Logf("actual: %s, expected: %s", val4.Value, expVal4)
-		if string(val4.Value) != expVal4 { t.Errorf("val 4 does not match expected val 4: actual(%s), expected(%s)", val4.Value, expVal4) }
+		if getErr != nil { t.Errorf("error getting val: %s", getErr.Error()) }
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {
-		kvPairs, getErr := mariInst.Range([]byte("hello"), []byte("yup"), nil)
-		if getErr != nil { t.Errorf("error on mari range: %s", getErr.Error()) }
+		var kvPairs []*mari.KeyValuePair
+
+		rangeErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+			var txRangeErr error
+			kvPairs, txRangeErr = tx.Range([]byte("hello"), []byte("yup"), nil)
+			if txRangeErr != nil { return txRangeErr }
+
+			return nil
+		})
+
+		if rangeErr != nil { t.Errorf("error on mari range: %s", rangeErr.Error()) }
 
 		t.Log("keys in kv pairs", func() []string{
 			var keys []string
@@ -142,19 +163,25 @@ func TestMari(t *testing.T) {
 	})
 
 	t.Run("Test Mari Delete", func(t *testing.T) {
-		_, delErr = mariInst.Delete([]byte("hello"))
-		if delErr != nil { t.Errorf("error deleting key from mari: %s", delErr.Error()) }
+		delErr = mariInst.UpdateTx(func(tx *mari.MariTx) error {
+			delTxErr := tx.Delete([]byte("hello"))
+			if delTxErr != nil { return delTxErr }
+	
+			delTxErr = tx.Delete([]byte("yup"))
+			if delTxErr != nil { return delTxErr }
+	
+			delTxErr = tx.Delete([]byte("asdf"))
+			if delTxErr != nil { return delTxErr }
+	
+			delTxErr = tx.Delete([]byte("asdfasdf"))
+			if delTxErr != nil { return delTxErr }
+	
+			delTxErr = tx.Delete([]byte("new"))
+			if delTxErr != nil { return delTxErr }
+			
+			return nil
+		})
 
-		_, delErr = mariInst.Delete([]byte("yup"))
-		if delErr != nil { t.Errorf("error deleting key from mari: %s", delErr.Error()) }
-
-		_, delErr = mariInst.Delete([]byte("asdf"))
-		if delErr != nil { t.Errorf("error deleting key from mari: %s", delErr.Error()) }
-
-		_, delErr = mariInst.Delete([]byte("asdfasdf"))
-		if delErr != nil { t.Errorf("error deleting key from mari: %s", delErr.Error()) }
-
-		_, delErr = mariInst.Delete([]byte("new"))
 		if delErr != nil { t.Errorf("error deleting key from mari: %s", delErr.Error()) }
 
 		t.Log("mari after deletes")

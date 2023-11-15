@@ -50,7 +50,13 @@ func TestMariConcurrentOperations(t *testing.T) {
 			go func () {
 				defer insertWG.Done()
 					for _, val := range chunk {
-						_, putErr := concurrentMariInst.Put(val.Key, val.Value)
+						putErr := concurrentMariInst.UpdateTx(func(tx *mari.MariTx) error {
+							putTxErr := tx.Put(val.Key, val.Value)
+							if putTxErr != nil { return putTxErr }
+
+							return nil
+						})
+						
 						if putErr != nil { t.Errorf("error on mari put: %s", putErr.Error()) }
 					}
 			}()
@@ -70,7 +76,15 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer retrieveWG.Done()
 
 				for _, val := range chunk {
-					kvPair, getErr := concurrentMariInst.Get(val.Key, nil)
+					var kvPair *mari.KeyValuePair
+					getErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+						var getTxErr error
+						kvPair, getTxErr = tx.Get(val.Key, nil)
+						if getTxErr != nil { return getTxErr }
+
+						return nil
+					})
+					
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 					if ! bytes.Equal(kvPair.Key, val.Key) || ! bytes.Equal(kvPair.Value, val.Value) {
@@ -100,7 +114,15 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer retrieveWG.Done()
 
 				for _, val := range chunk {
-					kvPair, getErr := concurrentMariInst.Get(val.Key, nil)
+					var kvPair *mari.KeyValuePair
+					getErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+						var getTxErr error
+						kvPair, getTxErr = tx.Get(val.Key, nil)
+						if getTxErr != nil { return getTxErr }
+
+						return nil
+					})
+					
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
 					if ! bytes.Equal(kvPair.Key, val.Key) || ! bytes.Equal(kvPair.Value, val.Value) {
@@ -126,8 +148,16 @@ func TestMariConcurrentOperations(t *testing.T) {
 			go func() {
 				defer iterWG.Done()
 
-				kvPairs, rangeErr := concurrentMariInst.Iterate(start, ITERATE_SIZE, nil)
-				if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
+				var kvPairs []*mari.KeyValuePair
+				iterErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+					var iterTxErr error
+					kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
+					if iterTxErr != nil { return iterTxErr }
+
+					return nil
+				})
+
+				if iterErr != nil { t.Errorf("error on mari get: %s", iterErr.Error()) }
 				
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 
@@ -162,7 +192,15 @@ func TestMariConcurrentOperations(t *testing.T) {
 			go func() {
 				defer rangeWG.Done()
 
-				kvPairs, rangeErr := concurrentMariInst.Range(start, end, nil)
+				var kvPairs []*mari.KeyValuePair
+				rangeErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+					var rangeTxErr error
+					kvPairs, rangeTxErr = tx.Range(start, end, nil)
+					if rangeTxErr != nil { return rangeTxErr }
+
+					return nil
+				})
+
 				if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
 				
 				atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
@@ -186,8 +224,13 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer delWG.Done()
 
 				for _, val := range chunk {
+					delErr := concurrentMariInst.UpdateTx(func(tx *mari.MariTx) error {
+						delTxErr := tx.Delete(val.Key)
+						if delTxErr != nil { return delTxErr }
 
-					_, delErr := concurrentMariInst.Delete(val.Key)
+						return nil
+					})
+
 					if delErr != nil { t.Errorf("error on mari delete: %s", delErr.Error()) }
 				}
 			}()

@@ -2,10 +2,24 @@ package mari
 
 import "runtime"
 import "sync/atomic"
+import "unsafe"
 
 
 //============================================= Mari IO Utils
 
+
+// compareAndSwap
+//	Performs CAS opertion.
+func (mariInst *Mari) compareAndSwap(node *unsafe.Pointer, currNode, nodeCopy *MariINode) bool {
+	if atomic.CompareAndSwapPointer(node, unsafe.Pointer(currNode), unsafe.Pointer(nodeCopy)) {
+		return true
+	} else {
+		mariInst.NodePool.LNodePool.Put(nodeCopy.Leaf)
+		mariInst.NodePool.INodePool.Put(nodeCopy)
+
+		return false
+	}
+}
 
 // determineIfResize
 //	Helper function that signals go routine for resizing if the condition to resize is met.

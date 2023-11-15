@@ -60,6 +60,24 @@ func (node *MariLNode) determineEndOffsetLNode() uint64 {
 	return nodeEndOffset - 1
 }
 
+// getChildNode
+//	Get the child node of an internal node.
+//	If the version is the same, set child as that node since it exists in the path.
+//	Otherwise, read the node from the memory map.
+func (mariInst *Mari) getChildNode(childOffset *MariINode, version uint64) (*MariINode, error) {
+	var childNode *MariINode
+	var desErr error
+
+	if childOffset.Version == version {
+		childNode = childOffset
+	} else {
+		childNode, desErr = mariInst.readINodeFromMemMap(childOffset.StartOffset)
+		if desErr != nil { return nil, desErr }
+	}
+
+	return childNode, nil
+}
+
 // getSerializedNodeSize
 //	Get the length of the node based on the length of its serialized representation.
 func getSerializedNodeSize(data []byte) uint64 {
