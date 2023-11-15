@@ -120,7 +120,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 			first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
 			if randomErr != nil { t.Error("error generating random min max") }
 	
-			start := stkeyValPairs[first].Key
+			start := keyValPairs[first].Key
 
 			iterWG.Add(1)
 			go func() {

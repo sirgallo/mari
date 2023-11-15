@@ -25,7 +25,7 @@ func init() {
 		panic(stInitMariErr.Error())
 	}
 
-	fmt.Println("concurrent test mari initialized")
+	fmt.Println("single thread test mari initialized")
 
 	stkeyValPairs = make([]KeyVal, INPUT_SIZE)
 
