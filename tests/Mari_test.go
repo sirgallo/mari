@@ -28,7 +28,7 @@ func TestMari(t *testing.T) {
 	defer mariInst.Remove()
 
 	var delErr, getErr, putErr error
-	var val1, val2, val3, val4 *mari.KeyValuePair
+	var val1, val2, val3, val4, val5 *mari.KeyValuePair
 
 	t.Run("Test Mari Put", func(t *testing.T) {
 		putErr = mariInst.UpdateTx(func(tx *mari.MariTx) error {
@@ -83,6 +83,9 @@ func TestMari(t *testing.T) {
 			putErr = tx.Put([]byte("woah"), []byte("done"))
 			if putErr != nil { return putErr }
 
+			putErr = tx.Put([]byte("Woah"), []byte("done"))
+			if putErr != nil { return putErr }
+			
 			return nil
 		})
 
@@ -93,7 +96,7 @@ func TestMari(t *testing.T) {
 	})
 
 	t.Run("Test Mari Get", func(t *testing.T) {
-		getErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+		getErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
 			expVal1 := "world"
 			val1, getErr = tx.Get([]byte("hello"), nil)
 			if getErr != nil { return getErr }
@@ -125,6 +128,14 @@ func TestMari(t *testing.T) {
 	
 			t.Logf("actual: %s, expected: %s", val4.Value, expVal4)
 			if string(val4.Value) != expVal4 { t.Errorf("val 4 does not match expected val 4: actual(%s), expected(%s)", val4.Value, expVal4) }
+
+			expVal5 := "done"
+			val5, getErr = tx.Get([]byte("Woah"), nil)
+			if getErr != nil { return getErr }
+			if val5 == nil { t.Error("val actually nil") }
+	
+			t.Logf("actual: %s, expected: %s", val5.Value, expVal5)
+			if string(val5.Value) != expVal5 { t.Errorf("val 4 does not match expected val 4: actual(%s), expected(%s)", val5.Value, expVal5) }
 			
 			return nil
 		})
@@ -135,7 +146,7 @@ func TestMari(t *testing.T) {
 	t.Run("Test Range Operation", func(t *testing.T) {
 		var kvPairs []*mari.KeyValuePair
 
-		rangeErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+		rangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
 			var txRangeErr error
 			kvPairs, txRangeErr = tx.Range([]byte("hello"), []byte("yup"), nil)
 			if txRangeErr != nil { return txRangeErr }

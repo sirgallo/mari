@@ -12,7 +12,7 @@ import "sync/atomic"
 //	Should help performance when there are a large number of go routines attempting to allocate/deallocate nodes.
 func newMariNodePool(maxSize int64) *MariNodePool {
 	size := int64(0)
-	np := &MariNodePool{ MaxSize: maxSize, Size: size }
+	np := &MariNodePool{ maxSize: maxSize, size: size }
 
 	iNodePool := &sync.Pool { 
 		New: func() interface {} { 
@@ -26,8 +26,8 @@ func newMariNodePool(maxSize int64) *MariNodePool {
 		},
 	}
 
-	np.INodePool = iNodePool
-	np.LNodePool = lNodePool
+	np.iNodePool = iNodePool
+	np.lNodePool = lNodePool
 	np.initializePools()
 
 	return np
@@ -37,8 +37,8 @@ func newMariNodePool(maxSize int64) *MariNodePool {
 //	Attempt to get a pre-allocated internal node from the node pool and decrement the total allocated nodes.
 //	If the pool is empty, a new node is allocated
 func (np *MariNodePool) getINode() *MariINode {
-	node := np.INodePool.Get().(*MariINode)
-	if atomic.LoadInt64(&np.Size) > 0 { atomic.AddInt64(&np.Size, -1) }
+	node := np.iNodePool.Get().(*MariINode)
+	if atomic.LoadInt64(&np.size) > 0 { atomic.AddInt64(&np.size, -1) }
 
 	return node
 }
@@ -47,8 +47,8 @@ func (np *MariNodePool) getINode() *MariINode {
 //	Attempt to get a pre-allocated leaf node from the node pool and decrement the total allocated nodes.
 //	If the pool is empty, a new node is allocated
 func (np *MariNodePool) getLNode() *MariLNode {
-	node := np.LNodePool.Get().(*MariLNode)
-	if atomic.LoadInt64(&np.Size) > 0 { atomic.AddInt64(&np.Size, -1) }
+	node := np.lNodePool.Get().(*MariLNode)
+	if atomic.LoadInt64(&np.size) > 0 { atomic.AddInt64(&np.size, -1) }
 
 	return node
 }
@@ -56,14 +56,14 @@ func (np *MariNodePool) getLNode() *MariLNode {
 // initializePool
 //	When Mari is opened, initialize the pool with the max size of nodes.
 func (np *MariNodePool) initializePools() {
-	for range make([]int, np.MaxSize / 2) {
-		np.INodePool.Put(np.resetINode(&MariINode{}))
-		atomic.AddInt64(&np.Size, 1)
+	for range make([]int, np.maxSize / 2) {
+		np.iNodePool.Put(np.resetINode(&MariINode{}))
+		atomic.AddInt64(&np.size, 1)
 	}
 
-	for range make([]int, np.MaxSize / 2) {
-		np.LNodePool.Put(np.resetLNode(&MariLNode{}))
-		atomic.AddInt64(&np.Size, 1)
+	for range make([]int, np.maxSize / 2) {
+		np.lNodePool.Put(np.resetLNode(&MariLNode{}))
+		atomic.AddInt64(&np.size, 1)
 	}
 }
 
@@ -71,9 +71,9 @@ func (np *MariNodePool) initializePools() {
 //	Attempt to put an internal node back into the pool once a path has been copied + serialized.
 //	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
 func (np *MariNodePool) putINode(node *MariINode) {
-	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
-		np.INodePool.Put(np.resetINode(node))
-		atomic.AddInt64(&np.Size, 1)
+	if atomic.LoadInt64(&np.size) < np.maxSize { 
+		np.iNodePool.Put(np.resetINode(node))
+		atomic.AddInt64(&np.size, 1)
 	}
 }
 
@@ -81,30 +81,30 @@ func (np *MariNodePool) putINode(node *MariINode) {
 //	Attempt to put a leaf node back into the pool once a path has been copied + serialized.
 //	If the pool is at max capacity, drop the node and let the garbage collector take care of it.
 func (np *MariNodePool) putLNode(node *MariLNode) {
-	if atomic.LoadInt64(&np.Size) < np.MaxSize { 
-		np.LNodePool.Put(np.resetLNode(node))
-		atomic.AddInt64(&np.Size, 1)
+	if atomic.LoadInt64(&np.size) < np.maxSize { 
+		np.lNodePool.Put(np.resetLNode(node))
+		atomic.AddInt64(&np.size, 1)
 	}
 }
 
 // resetINode
 //	When an internal node is put back in the pool, reset the values.
 func (np *MariNodePool) resetINode(node *MariINode) *MariINode{
-	node.Version = 0
-	node.StartOffset = 0
-	node.EndOffset = 0
-	node.Bitmap = [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
+	node.version = 0
+	node.startOffset = 0
+	node.endOffset = 0
+	node.bitmap = [8]uint32{0, 0, 0, 0, 0, 0, 0, 0}
 	
-	node.Leaf = &MariLNode{ 
-		Version: 0, 
-		StartOffset: 0, 
-		EndOffset: 0,
-		KeyLength: 0, 
-		Key: nil, 
-		Value: nil, 
+	node.leaf = &MariLNode{ 
+		version: 0, 
+		startOffset: 0, 
+		endOffset: 0,
+		keyLength: 0, 
+		key: nil, 
+		value: nil, 
 	}
 
-	node.Children = make([]*MariINode, 0)
+	node.children = make([]*MariINode, 0)
 
 	return node
 }
@@ -112,12 +112,12 @@ func (np *MariNodePool) resetINode(node *MariINode) *MariINode{
 // resetLNode
 //	When a leaf node is put back in the pool, reset the values.
 func (np *MariNodePool) resetLNode(node *MariLNode) *MariLNode{
-	node.Version = 0
-	node.StartOffset = 0
-	node.EndOffset = 0
-	node.KeyLength = 0
-	node.Key = nil
-	node.Value = nil
+	node.version = 0
+	node.startOffset = 0
+	node.endOffset = 0
+	node.keyLength = 0
+	node.key = nil
+	node.value = nil
 
 	return node
 }

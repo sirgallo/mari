@@ -13,9 +13,9 @@ import "unsafe"
 //	Version starts at 0 and increments, and root offset starts at 24.
 func (mariInst *Mari) initMeta(nextStart uint64) error {
 	newMeta := &MariMetaData{
-		Version: 0,
-		RootOffset: uint64(InitRootOffset),
-		NextStartOffset: nextStart,
+		version: 0,
+		rootOffset: uint64(InitRootOffset),
+		nextStartOffset: nextStart,
 	}
 
 	serializedMeta := newMeta.serializeMetaData()
@@ -37,7 +37,7 @@ func (mariInst *Mari) loadMetaRootOffset() (ptr *uint64, rOff uint64, err error)
 		}
 	}()
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	rootOffsetPtr := (*uint64)(unsafe.Pointer(&mMap[MetaRootOffsetIdx]))
 	rootOffset := atomic.LoadUint64(rootOffsetPtr)
 	
@@ -56,7 +56,7 @@ func (mariInst *Mari) loadMetaEndSerialized() (ptr *uint64, sOff uint64, err err
 		}
 	}()
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	endSerializedPtr := (*uint64)(unsafe.Pointer(&mMap[MetaEndSerializedOffset]))
 	endSerialized := atomic.LoadUint64(endSerializedPtr)
 	
@@ -75,7 +75,7 @@ func (mariInst *Mari) loadMetaVersion() (ptr *uint64, v uint64, err error) {
 		}
 	}()
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	versionPtr := (*uint64)(unsafe.Pointer(&mMap[MetaVersionIdx]))
 	version := atomic.LoadUint64(versionPtr)
 
@@ -107,7 +107,7 @@ func (mariInst *Mari) writeMetaToMemMap(sMeta []byte) (ok bool, err error) {
 		}
 	}()
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	copy(mMap[MetaVersionIdx:MetaEndSerializedOffset + OffsetSize], sMeta)
 
 	flushErr := mariInst.flushRegionToDisk(MetaVersionIdx, MetaEndSerializedOffset + OffsetSize)

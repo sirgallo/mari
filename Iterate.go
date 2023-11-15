@@ -17,9 +17,9 @@ func (mariInst *Mari) iterateRecursive(
 ) ([]*KeyValuePair, error) {
 	genKeyValPair := func(node *MariINode) *KeyValuePair {
 		kvPair := &KeyValuePair {
-			Version: node.Leaf.Version,
-			Key: node.Leaf.Key,
-			Value: node.Leaf.Value,
+			Version: node.leaf.version,
+			Key: node.leaf.key,
+			Value: node.leaf.value,
 		}
 
 		return kvPair
@@ -34,14 +34,14 @@ func (mariInst *Mari) iterateRecursive(
 			case totalResults == len(acc):
 				return acc, nil
 			case startKey != nil && len(startKey) > level:
-				if currNode.Leaf.Version >= minVersion && bytes.Compare(currNode.Leaf.Key, startKey) == 1 {
+				if currNode.leaf.version >= minVersion && bytes.Compare(currNode.leaf.key, startKey) == 1 {
 					acc = append(acc, transform(genKeyValPair(currNode)))
 				} else { return acc, nil }
 
 				startKeyIndex := getIndexForLevel(startKey, level)
-				startKeyPos = mariInst.getPosition(currNode.Bitmap, startKeyIndex, level)
+				startKeyPos = mariInst.getPosition(currNode.bitmap, startKeyIndex, level)
 			default:
-				if currNode.Leaf.Version >= minVersion && len(currNode.Leaf.Key) > 0 { 
+				if currNode.leaf.version >= minVersion && len(currNode.leaf.key) > 0 { 
 					acc = append(acc, transform(genKeyValPair(currNode)))
 				}
 
@@ -49,16 +49,16 @@ func (mariInst *Mari) iterateRecursive(
 		}
 	} else {
 		startKeyIdx := getIndexForLevel(startKey, level)
-		startKeyPos = mariInst.getPosition(currNode.Bitmap, startKeyIdx, level)
+		startKeyPos = mariInst.getPosition(currNode.bitmap, startKeyIdx, level)
 	}
 
-	if len(currNode.Children) > 0 {
+	if len(currNode.children) > 0 {
 		currPos := startKeyPos
 
-		for totalResults > len(acc) || currPos > len(currNode.Children) {
-			childOffset := currNode.Children[currPos]
+		for totalResults > len(acc) || currPos > len(currNode.children) {
+			childOffset := currNode.children[currPos]
 
-			childNode, getChildErr := mariInst.getChildNode(childOffset, currNode.Version)
+			childNode, getChildErr := mariInst.getChildNode(childOffset, currNode.version)
 			if getChildErr != nil { return nil, getChildErr}
 			childPtr := storeINodeAsPointer(childNode)
 

@@ -8,16 +8,16 @@ import "errors"
 
 
 // serializeMetaData
-//	Serialize the metadata at the first 0-23 bytes of the memory map. Version is 8 bytes and Root Offset is 8 bytes.
+//	Serialize the metadata at the first 0-23 bytes of the memory map. version is 8 bytes and Root Offset is 8 bytes.
 func (meta *MariMetaData) serializeMetaData() []byte {
 	versionBytes := make([]byte, OffsetSize)
-	binary.LittleEndian.PutUint64(versionBytes, meta.Version)
+	binary.LittleEndian.PutUint64(versionBytes, meta.version)
 
 	rootOffsetBytes := make([]byte, OffsetSize)
-	binary.LittleEndian.PutUint64(rootOffsetBytes, meta.RootOffset)
+	binary.LittleEndian.PutUint64(rootOffsetBytes, meta.rootOffset)
 
 	nextStartOffsetBytes := make([]byte, OffsetSize)
-	binary.LittleEndian.PutUint64(nextStartOffsetBytes, meta.NextStartOffset)
+	binary.LittleEndian.PutUint64(nextStartOffsetBytes, meta.nextStartOffset)
 
 	offsets := append(rootOffsetBytes, nextStartOffsetBytes...)
 	return append(versionBytes, offsets...)
@@ -58,18 +58,18 @@ func (mmcMap *Mari) deserializeINode(snode []byte) (*MariINode, error) {
 		offset, decChildErr := deserializeUint64(snode[currOffset:currOffset + OffsetSize])
 		if decChildErr != nil { return nil, decChildErr }
 
-		nodePtr := &MariINode{ StartOffset: offset }
+		nodePtr := &MariINode{ startOffset: offset }
 		children = append(children, nodePtr)
 		currOffset += NodeChildPtrSize
 	}
 
 	return &MariINode{
-		Version: version,
-		StartOffset: startOffset,
-		EndOffset: endOffset,
-		Bitmap: bitmaps,
-		Leaf: &MariLNode{ StartOffset: leafOffset },
-		Children: children,
+		version: version,
+		startOffset: startOffset,
+		endOffset: endOffset,
+		bitmap: bitmaps,
+		leaf: &MariLNode{ startOffset: leafOffset },
+		children: children,
 	}, nil
 }
 
@@ -92,12 +92,12 @@ func (mmcMap *Mari) deserializeLNode(snode []byte) (*MariLNode, error) {
 	value := snode[NodeKeyIdx + keyLength:]
 
 	return &MariLNode{
-		Version: version,
-		StartOffset: startOffset,
-		EndOffset: endOffset,
-		KeyLength: keyLength,
-		Key: key,
-		Value: value,
+		version: version,
+		startOffset: startOffset,
+		endOffset: endOffset,
+		keyLength: keyLength,
+		key: key,
+		value: value,
 	}, nil
 }
 
@@ -115,20 +115,20 @@ func (mmcMap *Mari) serializePathToMemMap(root *MariINode, nextOffsetInMMap uint
 //	If the node is a leaf, serialize it and return. If the node is a internal node, serialize each of the children recursively if
 //	the version matches the version of the root. If it is an older version, just serialize the existing offset in the memory map.
 func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64) ([]byte, error) {
-	node.StartOffset = offset
+	node.startOffset = offset
 	
 	sNode, serializeErr := node.serializeINode(true)
 	if serializeErr != nil { return nil, serializeErr }
 
-	serializedKeyVal, sLeafErr := node.Leaf.serializeLNode()
+	serializedKeyVal, sLeafErr := node.leaf.serializeLNode()
 	if sLeafErr != nil { return nil, sLeafErr }
 
 	var childrenOnPaths []byte
-	nextStartOffset := node.Leaf.EndOffset + 1
+	nextStartOffset := node.leaf.endOffset + 1
 
-	for _, child := range node.Children {
-		if child.Version != node.Version {
-			sNode = append(sNode, serializeUint64(child.StartOffset)...)
+	for _, child := range node.children {
+		if child.version != node.version {
+			sNode = append(sNode, serializeUint64(child.startOffset)...)
 		} else {
 			sNode = append(sNode, serializeUint64(nextStartOffset)...)
 			childrenOnPath, serializeErr := mmcMap.serializeRecursive(child, level + 1, nextStartOffset)
@@ -143,8 +143,8 @@ func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64
 
 	if len(childrenOnPaths) > 0 { sNode = append(sNode, childrenOnPaths...) }
 
-	mmcMap.NodePool.putLNode(node.Leaf)
-	mmcMap.NodePool.putINode(node)
+	mmcMap.nodePool.putLNode(node.leaf)
+	mmcMap.nodePool.putINode(node)
 	
 	return sNode, nil
 }
@@ -154,20 +154,20 @@ func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64
 func (node *MariLNode) serializeLNode() ([]byte, error) {
 	var sLNode []byte
 
-	node.EndOffset = node.determineEndOffsetLNode()
+	node.endOffset = node.determineEndOffsetLNode()
 
-	sVersion := serializeUint64(node.Version)
-	sStartOffset := serializeUint64(node.StartOffset)
-	sEndOffset := serializeUint64(node.EndOffset)
-	sKeyLength := serializeUint16(node.KeyLength)
+	sVersion := serializeUint64(node.version)
+	sStartOffset := serializeUint64(node.startOffset)
+	sEndOffset := serializeUint64(node.endOffset)
+	sKeyLength := serializeUint16(node.keyLength)
 
 	sLNode = append(sLNode, sVersion...)
 	sLNode = append(sLNode, sStartOffset...)
 	sLNode = append(sLNode, sEndOffset...)
 	sLNode = append(sLNode, sKeyLength...)
 	
-	sLNode = append(sLNode, node.Key...)
-	sLNode = append(sLNode, node.Value...)
+	sLNode = append(sLNode, node.key...)
+	sLNode = append(sLNode, node.value...)
 
 	return sLNode, nil
 }
@@ -177,16 +177,16 @@ func (node *MariLNode) serializeLNode() ([]byte, error) {
 func (node *MariINode) serializeINode(serializePath bool) ([]byte, error) {
 	var sINode []byte
 
-	node.EndOffset = node.determineEndOffsetINode()
-	node.Leaf.StartOffset = node.EndOffset + 1
+	node.endOffset = node.determineEndOffsetINode()
+	node.leaf.startOffset = node.endOffset + 1
 	
-	sVersion := serializeUint64(node.Version)
-	sStartOffset := serializeUint64(node.StartOffset)
-	sEndOffset := serializeUint64(node.EndOffset)
-	sLeafOffset := serializeUint64(node.Leaf.StartOffset)
+	sVersion := serializeUint64(node.version)
+	sStartOffset := serializeUint64(node.startOffset)
+	sEndOffset := serializeUint64(node.endOffset)
+	sLeafOffset := serializeUint64(node.leaf.startOffset)
 	
 	var sBitmap []byte
-	for _, subBitmap := range node.Bitmap {
+	for _, subBitmap := range node.bitmap {
 		sSubBitmap := serializeUint32(subBitmap)
 		sBitmap = append(sBitmap, sSubBitmap...)
 	}
@@ -198,8 +198,8 @@ func (node *MariINode) serializeINode(serializePath bool) ([]byte, error) {
 	sINode = append(sINode, sLeafOffset...)
 
 	if ! serializePath { 
-		for _, cnode := range node.Children {
-			snode := serializeUint64(cnode.StartOffset)
+		for _, cnode := range node.children {
+			snode := serializeUint64(cnode.startOffset)
 			sINode = append(sINode, snode...)
 		}
 	}

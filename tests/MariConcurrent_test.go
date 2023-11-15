@@ -77,7 +77,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
-					getErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+					getErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
 						var getTxErr error
 						kvPair, getTxErr = tx.Get(val.Key, nil)
 						if getTxErr != nil { return getTxErr }
@@ -115,7 +115,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
-					getErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+					getErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
 						var getTxErr error
 						kvPair, getTxErr = tx.Get(val.Key, nil)
 						if getTxErr != nil { return getTxErr }
@@ -149,7 +149,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer iterWG.Done()
 
 				var kvPairs []*mari.KeyValuePair
-				iterErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+				iterErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
 					var iterTxErr error
 					kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
 					if iterTxErr != nil { return iterTxErr }
@@ -193,7 +193,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 				defer rangeWG.Done()
 
 				var kvPairs []*mari.KeyValuePair
-				rangeErr := concurrentMariInst.ViewTx(func(tx *mari.MariTx) error {
+				rangeErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
 					var rangeTxErr error
 					kvPairs, rangeTxErr = tx.Range(start, end, nil)
 					if rangeTxErr != nil { return rangeTxErr }

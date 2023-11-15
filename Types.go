@@ -18,43 +18,43 @@ type MariOpts struct {
 // MariMetaData contains information related to where the root is located in the mem map and the version.
 type MariMetaData struct {
 	// Version: a tag for Copy-on-Write indicating the version of Mari
-	Version uint64
+	version uint64
 	// RootOffset: the offset of the latest version root node in Mari
-	RootOffset uint64
+	rootOffset uint64
 	// NextStartOffset: the offset where the last node in the mmap is located
-	NextStartOffset uint64
+	nextStartOffset uint64
 }
 
 // MariNode represents a singular node within the hash array mapped trie data structure.
 type MariINode struct {
 	// Version: a tag for Copy-on-Write indicating the version of the node
-	Version uint64
+	version uint64
 	// StartOffset: the offset from the beginning of the serialized node is located
-	StartOffset uint64
+	startOffset uint64
 	// EndOffset: the offset from the end of the serialized node is located
-	EndOffset uint64
+	endOffset uint64
 	// Bitmap: a 256 bit sparse index that indicates the location of each hashed key within the array of child nodes. Only stored in internal nodes
-	Bitmap [8]uint32
+	bitmap [8]uint32
 	// LeafOffset: the offset of the leaf node associated with the current byte chunk
-	Leaf *MariLNode
+	leaf *MariLNode
 	// Children: an array of child nodes, which are MariNodes. Location in the array is determined by the sparse index
-	Children []*MariINode
+	children []*MariINode
 }
 
 // MariNode represents a singular node within the hash array mapped trie data structure.
 type MariLNode struct {
 	// Version: a tag for Copy-on-Write indicating the version of the node
-	Version uint64
+	version uint64
 	// StartOffset: the offset from the beginning of the serialized node is located
-	StartOffset uint64
+	startOffset uint64
 	// EndOffset: the offset from the end of the serialized node is located
-	EndOffset uint64
+	endOffset uint64
 	// KeyLength: the length of the key in a Leaf Node. Keys can be variable size
-	KeyLength uint16
+	keyLength uint16
 	// Key: The key associated with a value. Keys are in byte array representation. Keys are only stored within leaf nodes
-	Key []byte
+	key []byte
 	// Value: The value associated with a key, in byte array representation. Values are only stored within leaf nodes
-	Value []byte
+	value []byte
 }
 
 // KeyValuePair
@@ -70,35 +70,35 @@ type KeyValuePair struct {
 // Mari contains the memory mapped buffer for Mari, as well as all metadata for operations to occur
 type Mari struct {
 	// Filepath: path to the Mari file
-	Filepath string
+	filepath string
 	// File: the Mari file
-	File *os.File
+	file *os.File
 	// Opened: flag indicating if the file has been opened
-	Opened bool
+	opened bool
 	// Data: the memory mapped file as a byte slice
-	Data atomic.Value
+	data atomic.Value
 	// IsResizing: atomic flag to determine if the mem map is being resized or not
-	IsResizing uint32
+	isResizing uint32
 	// SignalResize: send a signal to the resize go routine with the offset for resizing
-	SignalResize chan bool
+	signalResizeChan chan bool
 	// SignalFlush: send a signal to flush to disk on writes to avoid contention
-	SignalFlush chan bool
+	signalFlushChan chan bool
 	// ReadResizeLock: A Read-Write mutex for locking reads on resize operations
-	RWResizeLock sync.RWMutex
+	rwResizeLock sync.RWMutex
 	// NodePool: the sync.Pool for recycling nodes so nodes are not constantly allocated/deallocated
-	NodePool *MariNodePool
+	nodePool *MariNodePool
 }
 
 // MariNodePool contains pre-allocated MariINodes/MariLNodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op
 type MariNodePool struct {
 	// MaxSize: the max size for the node pool
-	MaxSize int64
+	maxSize int64
 	// Size: the current number of allocated nodes in the node pool
-	Size int64
+	size int64
 	// INodePool: the node pool that contains pre-allocated internal nodes
-	INodePool *sync.Pool
+	iNodePool *sync.Pool
 	// LNodePool: the node pool that contains pre-allocated leaf nodes
-	LNodePool *sync.Pool
+	lNodePool *sync.Pool
 }
 
 // MariOpTransform is the function signature for transform functions, which modify results

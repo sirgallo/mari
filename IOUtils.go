@@ -14,8 +14,8 @@ func (mariInst *Mari) compareAndSwap(node *unsafe.Pointer, currNode, nodeCopy *M
 	if atomic.CompareAndSwapPointer(node, unsafe.Pointer(currNode), unsafe.Pointer(nodeCopy)) {
 		return true
 	} else {
-		mariInst.NodePool.LNodePool.Put(nodeCopy.Leaf)
-		mariInst.NodePool.INodePool.Put(nodeCopy)
+		mariInst.nodePool.iNodePool.Put(nodeCopy.leaf)
+		mariInst.nodePool.lNodePool.Put(nodeCopy)
 
 		return false
 	}
@@ -24,15 +24,15 @@ func (mariInst *Mari) compareAndSwap(node *unsafe.Pointer, currNode, nodeCopy *M
 // determineIfResize
 //	Helper function that signals go routine for resizing if the condition to resize is met.
 func (mariInst *Mari) determineIfResize(offset uint64) bool {
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 
 	switch {
 		case offset > 0 && int(offset) < len(mMap):
 			return false
-		case len(mMap) == 0 || ! atomic.CompareAndSwapUint32(&mariInst.IsResizing, 0, 1):
+		case len(mMap) == 0 || ! atomic.CompareAndSwapUint32(&mariInst.isResizing, 0, 1):
 			return true
 		default:
-			mariInst.SignalResize <- true
+			mariInst.signalResizeChan <- true
 			return true
 	}
 }
@@ -43,7 +43,7 @@ func (mariInst *Mari) determineIfResize(offset uint64) bool {
 func (mariInst *Mari) flushRegionToDisk(startOffset, endOffset uint64) error {
 	startOffsetOfPage := startOffset & ^(uint64(DefaultPageSize) - 1)
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	if len(mMap) == 0 { return nil }
 
 	flushErr := mMap[startOffsetOfPage:endOffset].Flush()
@@ -56,14 +56,14 @@ func (mariInst *Mari) flushRegionToDisk(startOffset, endOffset uint64) error {
 //	This is "optimistic" flushing. 
 //	A separate go routine is spawned and signalled to flush changes to the mmap to disk.
 func (mariInst *Mari) handleFlush() {
-	for range mariInst.SignalFlush {
+	for range mariInst.signalFlushChan {
 		func() {
-			for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
+			for atomic.LoadUint32(&mariInst.isResizing) == 1 { runtime.Gosched() }
 			
-			mariInst.RWResizeLock.RLock()
-			defer mariInst.RWResizeLock.RUnlock()
+			mariInst.rwResizeLock.RLock()
+			defer mariInst.rwResizeLock.RUnlock()
 
-			mariInst.File.Sync()
+			mariInst.file.Sync()
 		}()
 	}
 }
@@ -72,27 +72,27 @@ func (mariInst *Mari) handleFlush() {
 //	A separate go routine is spawned to handle resizing the memory map.
 //	When the mmap reaches its size limit, the go routine is signalled.
 func (mariInst *Mari) handleResize() {
-	for range mariInst.SignalResize { mariInst.resizeMmap() }
+	for range mariInst.signalResizeChan { mariInst.resizeMmap() }
 }
 
 // mmap
 //	Helper to memory map the mariInst File in to buffer.
 func (mariInst *Mari) mMap() error {
-	mMap, mmapErr := Map(mariInst.File, RDWR, 0)
+	mMap, mmapErr := Map(mariInst.file, RDWR, 0)
 	if mmapErr != nil { return mmapErr }
 
-	mariInst.Data.Store(mMap)
+	mariInst.data.Store(mMap)
 	return nil
 }
 
 // munmap
 //	Unmaps the memory map from RAM.
 func (mariInst *Mari) munmap() error {
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 	unmapErr := mMap.Unmap()
 	if unmapErr != nil { return unmapErr }
 
-	mariInst.Data.Store(MMap{})
+	mariInst.data.Store(MMap{})
 	return nil
 }
 
@@ -100,12 +100,12 @@ func (mariInst *Mari) munmap() error {
 //	Dynamically resizes the underlying memory mapped file.
 //	When a file is first created, default size is 64MB and doubles the mem map on each resize until 1GB.
 func (mariInst *Mari) resizeMmap() (bool, error) {
-	mariInst.RWResizeLock.Lock()
+	mariInst.rwResizeLock.Lock()
 	
-	defer mariInst.RWResizeLock.Unlock()
-	defer atomic.StoreUint32(&mariInst.IsResizing, 0)
+	defer mariInst.rwResizeLock.Unlock()
+	defer atomic.StoreUint32(&mariInst.isResizing, 0)
 
-	mMap := mariInst.Data.Load().(MMap)
+	mMap := mariInst.data.Load().(MMap)
 
 	allocateSize := func() int64 {
 		switch {
@@ -119,14 +119,14 @@ func (mariInst *Mari) resizeMmap() (bool, error) {
 	}()
 
 	if len(mMap) > 0 {
-		flushErr := mariInst.File.Sync()
+		flushErr := mariInst.file.Sync()
 		if flushErr != nil { return false, flushErr }
 		
 		unmapErr := mariInst.munmap()
 		if unmapErr != nil { return false, unmapErr }
 	}
 
-	truncateErr := mariInst.File.Truncate(allocateSize)
+	truncateErr := mariInst.file.Truncate(allocateSize)
 	if truncateErr != nil { return false, truncateErr }
 
 	mmapErr := mariInst.mMap()
@@ -139,7 +139,7 @@ func (mariInst *Mari) resizeMmap() (bool, error) {
 //	Called by all writes to "optimistically" handle flushing changes to the mmap to disk.
 func (mariInst *Mari) signalFlush() {
 	select {
-		case mariInst.SignalFlush <- true:
+		case mariInst.signalFlushChan <- true:
 		default:
 	}
 }
@@ -147,7 +147,7 @@ func (mariInst *Mari) signalFlush() {
 // exclusiveWriteMmap
 //	Takes a path copy and writes the nodes to the memory map, then updates the metadata.
 func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
-	if atomic.LoadUint32(&mariInst.IsResizing) == 1 { return false, nil }
+	if atomic.LoadUint32(&mariInst.isResizing) == 1 { return false, nil }
 
 	versionPtr, version, loadVErr := mariInst.loadMetaVersion()
 	if loadVErr != nil { return false, nil }
@@ -158,35 +158,35 @@ func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
 	endOffsetPtr, endOffset, loadSOffErr := mariInst.loadMetaEndSerialized()
 	if loadSOffErr != nil { return false, nil }
 
-	newVersion := path.Version
+	newVersion := path.version
 	newOffsetInMMap := endOffset
 	
 	serializedPath, serializeErr := mariInst.serializePathToMemMap(path, newOffsetInMMap)
 	if serializeErr != nil { return false, serializeErr }
 
 	updatedMeta := &MariMetaData{
-		Version: newVersion,
-		RootOffset: newOffsetInMMap,
-		NextStartOffset: newOffsetInMMap + uint64(len(serializedPath)),
+		version: newVersion,
+		rootOffset: newOffsetInMMap,
+		nextStartOffset: newOffsetInMMap + uint64(len(serializedPath)),
 	}
 
-	isResize := mariInst.determineIfResize(updatedMeta.NextStartOffset)
+	isResize := mariInst.determineIfResize(updatedMeta.nextStartOffset)
 	if isResize { return false, nil }
 
-	if atomic.LoadUint32(&mariInst.IsResizing) == 0 {
-		if version == updatedMeta.Version - 1 && atomic.CompareAndSwapUint64(versionPtr, version, updatedMeta.Version) {
-			mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.NextStartOffset)
+	if atomic.LoadUint32(&mariInst.isResizing) == 0 {
+		if version == updatedMeta.version - 1 && atomic.CompareAndSwapUint64(versionPtr, version, updatedMeta.version) {
+			mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.nextStartOffset)
 			
 			_, writeNodesToMmapErr := mariInst.writeNodesToMemMap(serializedPath, newOffsetInMMap)
 			if writeNodesToMmapErr != nil {
-				mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.NextStartOffset)
+				mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.nextStartOffset)
 				mariInst.storeMetaPointer(versionPtr, version)
 				mariInst.storeMetaPointer(rootOffsetPtr, prevRootOffset)
 
 				return false, writeNodesToMmapErr
 			}
 			
-			mariInst.storeMetaPointer(rootOffsetPtr, updatedMeta.RootOffset)
+			mariInst.storeMetaPointer(rootOffsetPtr, updatedMeta.rootOffset)
 			mariInst.signalFlush()
 			
 			return true, nil

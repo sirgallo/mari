@@ -8,7 +8,7 @@ import mrand "math/rand"
 import "github.com/sirgallo/mari"
 
 
-const NUM_WRITER_GO_ROUTINES = 10
+const NUM_WRITER_GO_ROUTINES = 1
 const NUM_READER_GO_ROUTINES = 100
 const INPUT_SIZE = 1000000
 const ITERATE_SIZE = 50000
@@ -26,12 +26,19 @@ type KeyVal struct {
 
 
 func GenerateRandomBytes(length int) ([]byte, error) {
+ 	byteMapping := func(b byte) byte {
+		const charset = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		return charset[b%62]
+	}
+
+	if length <= 0 { return nil, errors.New("length must be greater than 0") }
+
 	randomBytes := make([]byte, length)
 	_, err := rand.Read(randomBytes)
 	if err != nil { return nil, err }
 
 	for i := 0; i < length; i++ {
-		randomBytes[i] = 'a' + (randomBytes[i] % 26)
+		randomBytes[i] = byteMapping(randomBytes[i])
 	}
 
 	return randomBytes, nil

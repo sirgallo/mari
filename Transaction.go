@@ -22,11 +22,11 @@ func newTx(mariInst *Mari, rootPtr *unsafe.Pointer, isWrite bool) *MariTx {
 	}
 }
 
-// ViewTx
+// ReadTx
 //	Handles all read related operations.
 //	It gets the latest version of the ordered array mapped trie and starts from that offset in the mem-map.
 //	Get is concurrent since it will perform the operation on an existing path, so new paths can be written at the same time with new versions.
-func (mariInst *Mari) ViewTx(txOps func(tx *MariTx) error) error {
+func (mariInst *Mari) ReadTx(txOps func(tx *MariTx) error) error {
 	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 	if loadROffErr != nil { return loadROffErr }
 
@@ -43,15 +43,15 @@ func (mariInst *Mari) ViewTx(txOps func(tx *MariTx) error) error {
 }
 
 // UpdateTx
-//	Handles all write related operations.
+//	Handles all read-write related operations.
 //	If the operation fails, the copied and modified path is discarded and the operation retries back at the root until completed.
 //	The operation begins at the latest known version of root, reads from the metadata in the memory map.
 //  The version of the copy is incremented and if the metadata is the same after the path copying has occured, the path is serialized and appended to the memory-map.
 //	The metadata is also being updated to reflect the new version and the new root offset.
 func (mariInst *Mari) UpdateTx(txOps func(tx *MariTx) error) error {
 	for {
-		for atomic.LoadUint32(&mariInst.IsResizing) == 1 { runtime.Gosched() }
-		mariInst.RWResizeLock.RLock()
+		for atomic.LoadUint32(&mariInst.isResizing) == 1 { runtime.Gosched() }
+		mariInst.rwResizeLock.RLock()
 
 		versionPtr, version, loadVErr := mariInst.loadMetaVersion()
 		if loadVErr != nil { return loadVErr }
@@ -62,11 +62,11 @@ func (mariInst *Mari) UpdateTx(txOps func(tx *MariTx) error) error {
 	
 			currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 			if readRootErr != nil {
-				mariInst.RWResizeLock.RUnlock()
+				mariInst.rwResizeLock.RUnlock()
 				return readRootErr
 			}
 	
-			currRoot.Version = currRoot.Version + 1
+			currRoot.version = currRoot.version + 1
 			rootPtr := storeINodeAsPointer(currRoot)
 			
 			transaction := newTx(mariInst, rootPtr, true)
@@ -76,17 +76,17 @@ func (mariInst *Mari) UpdateTx(txOps func(tx *MariTx) error) error {
 			updatedRootCopy := loadINodeFromPointer(rootPtr)
 			ok, writeErr := mariInst.exclusiveWriteMmap(updatedRootCopy)
 			if writeErr != nil {
-				mariInst.RWResizeLock.RUnlock()
+				mariInst.rwResizeLock.RUnlock()
 				return writeErr
 			}
 
 			if ok {
-				mariInst.RWResizeLock.RUnlock() 
+				mariInst.rwResizeLock.RUnlock() 
 				return nil
 			}
 		}
 
-		mariInst.RWResizeLock.RUnlock()
+		mariInst.rwResizeLock.RUnlock()
 		runtime.Gosched()
 	}
 }

@@ -17,21 +17,21 @@ func Open(opts MariOpts) (*Mari, error) {
 	np := newMariNodePool(100000)	// let's initialize with 100,000 pre-allocated nodes
 
 	mariInst := &Mari{
-		Opened: true,
-		SignalResize: make(chan bool),
-		SignalFlush: make(chan bool),
-		NodePool: np,
+		opened: true,
+		signalResizeChan: make(chan bool),
+		signalFlushChan: make(chan bool),
+		nodePool: np,
 	}
 
 	flag := os.O_RDWR | os.O_CREATE | os.O_APPEND
 	var openFileErr error
 
-	mariInst.File, openFileErr = os.OpenFile(opts.Filepath, flag, 0600)
+	mariInst.file, openFileErr = os.OpenFile(opts.Filepath, flag, 0600)
 	if openFileErr != nil { return nil, openFileErr	}
 
-	mariInst.Filepath = mariInst.File.Name()
-	atomic.StoreUint32(&mariInst.IsResizing, 0)
-	mariInst.Data.Store(MMap{})
+	mariInst.filepath = mariInst.file.Name()
+	atomic.StoreUint32(&mariInst.isResizing, 0)
+	mariInst.data.Store(MMap{})
 
 	initFileErr := mariInst.initializeFile()
 	if initFileErr != nil { return nil, initFileErr	}
@@ -45,28 +45,28 @@ func Open(opts MariOpts) (*Mari, error) {
 // Close
 //	Close Mari, unmapping the file from memory and closing the file.
 func (mariInst *Mari) Close() error {
-	if ! mariInst.Opened { return nil }
-	mariInst.Opened = false
+	if ! mariInst.opened { return nil }
+	mariInst.opened = false
 
-	flushErr := mariInst.File.Sync()
+	flushErr := mariInst.file.Sync()
 	if flushErr != nil { return flushErr }
 
 	unmapErr := mariInst.munmap()
 	if unmapErr != nil { return unmapErr }
 
-	if mariInst.File != nil {
-		closeErr := mariInst.File.Close()
+	if mariInst.file != nil {
+		closeErr := mariInst.file.Close()
 		if closeErr != nil { return closeErr }
 	}
 
-	mariInst.Filepath = utils.GetZero[string]()
+	mariInst.filepath = utils.GetZero[string]()
 	return nil
 }
 
 // FileSize
 //	Determine the memory mapped file size.
 func (mariInst *Mari) FileSize() (int, error) {
-	stat, statErr := mariInst.File.Stat()
+	stat, statErr := mariInst.file.Stat()
 	if statErr != nil { return 0, statErr }
 
 	size := int(stat.Size())
@@ -79,7 +79,7 @@ func (mariInst *Mari) Remove() error {
 	closeErr := mariInst.Close()
 	if closeErr != nil { return closeErr }
 
-	removeErr := os.Remove(mariInst.File.Name())
+	removeErr := os.Remove(mariInst.file.Name())
 	if removeErr != nil { return removeErr }
 
 	return nil

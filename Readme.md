@@ -14,7 +14,7 @@
 
 Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free and multiple writers and readers can be operate on the data in parallel. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added. Writers do not lock reads since reads operate on the current/previous version in the data. Since the trie is ordered, range operations and ordered iterations are supported, which are also concurrent and lock free. Writes that succeed are immediately flushed to disk to preserve data integrity.
 
-Every operation on mari is a transaction. Transactions can be either read only (`ViewTx`) or read-write (`UpdateTx`). Write operations will only modify the current version supplied in the transaction and will be isolated from updates to the data. If a transaction succeeds in full, it is written to the memory map, otherwise it is discarded and retried. This ensures that transactions are ACID. Read only transactions are also performed in isolation but can run while read-write operations are occuring.
+Every operation on mari is a transaction. Transactions can be either read only (`ReadTx`) or read-write (`UpdateTx`). Write operations will only modify the current version supplied in the transaction and will be isolated from updates to the data. If a transaction succeeds in full, it is written to the memory map, otherwise it is discarded and retried. This ensures that transactions are ACID. Read only transactions are also performed in isolation but can run while read-write operations are occuring.
 
 Transforms can be created for read operations to transform results before being returned to the user.
 
@@ -63,7 +63,7 @@ func main() {
   // get a value in mari
   // if transform is nil, kvPair is returned as is
   var kvPair *mari.KeyValuePair
-  getErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  getErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var getTxErr error
     kvPair, getTxErr = tx.Get(key, nil)
     if getTxErr != nil { return getTxErr }
@@ -76,7 +76,7 @@ func main() {
   // get a set of ordered iterated key value pairs from a start key to the total result size
   // if opts is nil, version is set to the earliest version and transform will not be used
   var iteratedkvPairs []*mari.KeyValuePair
-  iterErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  iterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var iterTxErr error
     iteratedkvPairs, iterTxErr = mariInst.Iterate([]("hello"), 10000, nil)
     if iterTxErr != nil { return iterTxErr }
@@ -89,7 +89,7 @@ func main() {
   // get a range of key-value pairs from a minimum version
   // if opts is nil, version is set to the earliest version and transform will not be used
   var rangekvPairs []*mari.KeyValuePairs
-  rangeErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  rangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var rangeTxErr error
     rangekvPairs, rangeTxErr = tx.Range([]("hello"), []("world"), nil)
     if rangeTxErr != nil { return rangeTxErr }
@@ -115,7 +115,7 @@ func main() {
 
   // get a transformed key-value in mari
   var transformedKvPair *mari.KeyValuePair
-  getTransformedErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  getTransformedErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var getTxErr error
     transformedKvPair, getTxErr = tx.Get(key, transform)
     if getTxErr != nil { return getTxErr }
@@ -127,7 +127,7 @@ func main() {
 
   // get a range of key value pairs with transformed values
   var transformedRangePairs []*mari.KeyValuePair
-  transformedRangeErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  transformedRangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var rangeTxErr error
     transformedRangePairs, rangeTxErr = tx.Range([]("hello"), []("world"), opts)
     if rangeTxErr != nil { return rangeTxErr }
@@ -139,7 +139,7 @@ func main() {
 
   // get a set of ordered iterated key value pairs with transformed values
   var transformedIterPairs []*mari.KeyValuePair
-  transformedIterErr := mariInst.ViewTx(func(tx *mari.MariTx) error {
+  transformedIterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var iterTxErr error
     transformedIterPairs, iterTxErr = mariInst.Iterate([]("hello"), 10000, opts)
     if iterTxErr != nil { return iterTxErr }
@@ -150,7 +150,7 @@ func main() {
   if transformedIterErr != nil { panic(iterErr.Error()) }
 
   // delete a value in mari
-  delErr := singleThreadTestMap.UpdateTx(func(tx *mari.MariTx) error {
+  delErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
     delTxErr := tx.Delete(key)
     if delTxErr != nil { return delTxErr }
 

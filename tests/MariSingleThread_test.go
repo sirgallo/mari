@@ -57,7 +57,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		
 		for _, val := range stkeyValPairs {
 			var kvPair *mari.KeyValuePair
-			getErr := singleThreadTestMap.ViewTx(func(tx *mari.MariTx) error {
+			getErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
 				var getTxErr error
 				kvPair, getTxErr = tx.Get(val.Key, nil)
 				if getTxErr != nil { return getTxErr }
@@ -84,7 +84,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 
 		for _, val := range stkeyValPairs {
 			var kvPair *mari.KeyValuePair
-			getErr := singleThreadTestMap.ViewTx(func(tx *mari.MariTx) error {
+			getErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
 				var getTxErr error
 				kvPair, getTxErr = tx.Get(val.Key, nil)
 				if getTxErr != nil { return getTxErr }
@@ -107,7 +107,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		start := stkeyValPairs[first].Key
 
 		var kvPairs []*mari.KeyValuePair
-		iterErr := singleThreadTestMap.ViewTx(func(tx *mari.MariTx) error {
+		iterErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
 			var iterTxErr error
 			kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
 			if iterTxErr != nil { return iterTxErr }
@@ -138,7 +138,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 		}
 
 		var kvPairs []*mari.KeyValuePair
-		rangeErr := singleThreadTestMap.ViewTx(func(tx *mari.MariTx) error {
+		rangeErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
 			var rangeTxErr error
 			kvPairs, rangeTxErr = tx.Range(start, end, nil)
 			if rangeTxErr != nil { return rangeTxErr }

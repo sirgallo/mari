@@ -87,7 +87,7 @@ func TestMariParallelReadWrites(t *testing.T) {
 
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
-					getErr := parallelMariInst.ViewTx(func(tx *mari.MariTx) error {
+					getErr := parallelMariInst.ReadTx(func(tx *mari.MariTx) error {
 						var getTxErr error
 						kvPair, getTxErr = tx.Get(val.Key, nil)
 						if getTxErr != nil { return getTxErr }
