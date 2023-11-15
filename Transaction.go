@@ -91,7 +91,8 @@ func (mariInst *Mari) UpdateTx(txOps func(tx *MariTx) error) error {
 	}
 }
 
-// Put inserts or updates key-value pair into the ordered array mapped trie.
+// Put 
+//	Inserts or updates key-value pair into the ordered array mapped trie.
 //	The operation begins at the root of the trie and traverses through the tree until the correct location is found, copying the entire path.
 func (tx *MariTx) Put(key, value []byte) error {
 	if ! tx.isWrite { return errors.New("attempting to perform a write in a read only transaction, use tx.UpdateTx") }
@@ -114,7 +115,8 @@ func (tx *MariTx) Get(key []byte, transform *MariOpTransform) (*KeyValuePair, er
 	return tx.store.getRecursive(tx.root, key, 0, newTransform)
 }
 
-// Delete attempts to delete a key-value pair within the ordered array mapped trie.
+// Delete 
+//	Attempts to delete a key-value pair within the ordered array mapped trie.
 //	It starts at the root of the trie and recurses down the path to the key to be deleted.
 //	The operation creates an entire, in-memory copy of the path down to the key.
 func (tx *MariTx) Delete(key []byte) error {
