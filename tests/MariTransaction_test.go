@@ -240,7 +240,7 @@ func TestMariTransactionOperations(t *testing.T) {
 			if getTxErr != nil { return getTxErr }
 
 			var iterTxErr error
-			kvPairs, iterTxErr = tx.Iterate(start, 1, nil)
+			kvPairs, iterTxErr = tx.Iterate(start, 10000, nil)
 			if iterTxErr != nil { return iterTxErr }
 
 			return nil
