@@ -207,6 +207,52 @@ func TestMari(t *testing.T) {
 		}
 	})
 
+	t.Run("Test Transform on Iterate Operation", func(t *testing.T) {
+		var kvPairs []*mari.KeyValuePair
+
+		transform := func(kvPair *mari.KeyValuePair) *mari.KeyValuePair {
+			kvPair.Value = append(kvPair.Value, kvPair.Value...)
+			return kvPair
+		}
+
+		opts := &mari.MariRangeOpts{
+			Transform: &transform,
+		}
+
+		iterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
+			var txIterErr error
+			kvPairs, txIterErr = tx.Iterate([]byte("hello"), 3, opts)
+			if txIterErr != nil { return txIterErr }
+
+			return nil
+		})
+
+		if iterErr != nil { t.Errorf("error on mari range: %s", iterErr.Error()) }
+
+		t.Log("keys in kv pairs:", func() []string{
+			var keys []string
+			for _, kv := range kvPairs { 
+				keys = append(keys, string(kv.Key))
+			}
+
+			return keys
+		}(), "transformed values in kv pairs:", func() []string{
+			var values []string
+			for _, kv := range kvPairs { 
+				values = append(values, string(kv.Value))
+			}
+
+			return values
+		}())
+
+		isSorted := IsSorted(kvPairs)
+		t.Logf("is sorted: %t", isSorted)
+
+		if ! isSorted {
+			t.Errorf("key value pairs are not in sorted order: %t", isSorted)
+		}
+	})
+
 	t.Run("Test Mari Delete", func(t *testing.T) {
 		delErr = mariInst.UpdateTx(func(tx *mari.MariTx) error {
 			delTxErr := tx.Delete([]byte("hello"))

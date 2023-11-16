@@ -88,7 +88,6 @@ func TestMariParallelReadWrites(t *testing.T) {
 			pRetrieveWG.Add(1)
 			go func() {
 				defer pRetrieveWG.Done()
-
 				for _, kv := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := parallelMariInst.ReadTx(func(tx *mari.MariTx) error {
@@ -120,7 +119,6 @@ func TestMariParallelReadWrites(t *testing.T) {
 			pInsertWG.Add(1)
 			go func() {
 				defer pInsertWG.Done()
-
 				for _, kv := range chunk {
 					putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
 						putTxErr := tx.Put(kv.Key, kv.Value)

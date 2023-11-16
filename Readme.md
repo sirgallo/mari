@@ -110,16 +110,14 @@ func main() {
 
   // create a transformer to process results before being returned
   transform := func(kvPair *mari.KeyValuePair) *mari.KeyValuePair {
-    newValue := kvPair.Value + kvPair.Value
-    kvPair.Value = newValue
-
+    kvPair.Value = append(kvPair.Value, kvPair.Value...)
     return kvPair
   }
 
   // opts for range + iteration functions
   // can also contain MinVersion for the minimum version
   rangeOpts := &mari.MariRangeOpts{
-    Transform: transform
+    Transform: &transform
   }
 
   // get a transformed key-value in mari

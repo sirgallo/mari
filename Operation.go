@@ -173,8 +173,8 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int, 
 				pos := mariInst.getPosition(currNode.bitmap, index, level)
 				childOffset := currNode.children[pos]
 
-				childNode, desErr := mariInst.readINodeFromMemMap(childOffset.startOffset)
-				if desErr != nil { return nil, desErr }
+				childNode, getChildErr := mariInst.getChildNode(childOffset, currNode.version)
+				if getChildErr != nil { return nil, getChildErr }
 
 				childPtr := storeINodeAsPointer(childNode)
 				return mariInst.getRecursive(childPtr, key, level + 1, transform)

@@ -78,7 +78,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 			retrieveWG.Add(1)
 			go func() {
 				defer retrieveWG.Done()
-
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
@@ -116,7 +115,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 			retrieveWG.Add(1)
 			go func() {
 				defer retrieveWG.Done()
-
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := concurrentMariInst.ReadTx(func(tx *mari.MariTx) error {
@@ -226,7 +224,6 @@ func TestMariConcurrentOperations(t *testing.T) {
 			delWG.Add(1)
 			go func() {
 				defer delWG.Done()
-
 				for _, val := range chunk {
 					delErr := concurrentMariInst.UpdateTx(func(tx *mari.MariTx) error {
 						delTxErr := tx.Delete(val.Key)

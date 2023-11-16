@@ -56,7 +56,6 @@ func TestMariTransactionOperations(t *testing.T) {
 			txInsertWG.Add(1)
 			go func () {
 				defer txInsertWG.Done()
-
 					for _, chunk := range chunks {
 						putErr := txMariInst.UpdateTx(func(tx *mari.MariTx) error {
 							for _, kvPair := range chunk {
@@ -77,14 +76,13 @@ func TestMariTransactionOperations(t *testing.T) {
 
 	t.Run("Test Read Operations", func(t *testing.T) {
 		defer txMariInst.Close()
-		
+
 		for i := range make([]int, NUM_READER_GO_ROUTINES) {
 			chunk := txKeyValPairs[i * READ_CHUNK_SIZE:(i + 1) * READ_CHUNK_SIZE]
 			
 			txRetrieveWG.Add(1)
 			go func() {
 				defer txRetrieveWG.Done()
-
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := txMariInst.ReadTx(func(tx *mari.MariTx) error {
@@ -125,7 +123,6 @@ func TestMariTransactionOperations(t *testing.T) {
 			txRetrieveWG.Add(1)
 			go func() {
 				defer txRetrieveWG.Done()
-
 				for _, val := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := txMariInst.ReadTx(func(tx *mari.MariTx) error {
@@ -158,7 +155,6 @@ func TestMariTransactionOperations(t *testing.T) {
 			txRetrieveWG.Add(1)
 			go func() {
 				defer txRetrieveWG.Done()
-
 				for _, chunk := range chunks {
 					getErr := txMariInst.ReadTx(func(tx *mari.MariTx) error {
 						for _, kv := range chunk {
@@ -218,24 +214,24 @@ func TestMariTransactionOperations(t *testing.T) {
 	})
 
 	t.Run("Test Mixed Operation", func(t *testing.T) {
-		txMixKvPairs := make([]KeyVal, TRANSACTION_CHUNK_SIZE)
+		txMixedKvPairs := make([]KeyVal, TRANSACTION_CHUNK_SIZE)
 
 		first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
 		if randomErr != nil { t.Error("error generating random min max") }
 
 		start := txKeyValPairs[first].Key
 
-		for idx := range txMixKvPairs {
+		for idx := range txMixedKvPairs {
 			randomBytes, _ := GenerateRandomBytes(32)
-			txMixKvPairs[idx] = KeyVal{ Key: randomBytes, Value: randomBytes }
+			txMixedKvPairs[idx] = KeyVal{ Key: randomBytes, Value: randomBytes }
 		}
 
-		var kvPair *mari.KeyValuePair
 		var kvPairs []*mari.KeyValuePair
+		var kvPair *mari.KeyValuePair
 
 		mixedErr := txMariInst.UpdateTx(func(tx *mari.MariTx) error {
-			for _, kvPair := range txMixKvPairs {
-				putTxErr := tx.Put(kvPair.Key, kvPair.Value)
+			for _, newKV := range txMixedKvPairs {
+				putTxErr := tx.Put(newKV.Key, newKV.Value)
 				if putTxErr != nil { return putTxErr }
 			}
 
@@ -243,12 +239,8 @@ func TestMariTransactionOperations(t *testing.T) {
 			kvPair, getTxErr = tx.Get(start, nil)
 			if getTxErr != nil { return getTxErr }
 
-			if ! bytes.Equal(kvPair.Key, start) {
-				t.Errorf("actual value not equal to expected: actual(%v), expected(%v)", kvPair, start)
-			}
-
 			var iterTxErr error
-			kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
+			kvPairs, iterTxErr = tx.Iterate(start, 1, nil)
 			if iterTxErr != nil { return iterTxErr }
 
 			return nil
@@ -258,6 +250,10 @@ func TestMariTransactionOperations(t *testing.T) {
 		
 		isSorted := IsSorted(kvPairs)
 		if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
+
+		if ! bytes.Equal(kvPair.Key, start) {
+			t.Errorf("actual value not equal to expected: actual(%v), expected(%v)", kvPair, start)
+		}
 	})
 
 	t.Run("Test Delete Operations", func(t *testing.T) {
@@ -270,7 +266,6 @@ func TestMariTransactionOperations(t *testing.T) {
 			txDelWG.Add(1)
 			go func() {
 				defer txDelWG.Done()
-
 				for _, chunk := range chunks {
 					delErr := txMariInst.UpdateTx(func(tx *mari.MariTx) error {
 						for _, kvPair := range chunk {
