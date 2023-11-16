@@ -186,8 +186,6 @@ func main() {
 
   if delErr != nil { panic(delErr.Error()) }
 
-  if mixedErr != nil { panic(mixedErr.Error()) }
-
   // get mari filesize
   fSize, sizeErr := mariInst.FileSize()
   if sizeErr != nil { panic(sizeErr.Error()) }
