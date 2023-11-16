@@ -37,21 +37,21 @@ func setup() {
 	initKeyValPairs = make([]KeyVal, INPUT_SIZE)
 	pKeyValPairs = make([]KeyVal, PWRITE_INPUT_SIZE)
 
-	for idx := range initKeyValPairs {
-		iRandomBytes, _ := GenerateRandomBytes(32)
-		initKeyValPairs[idx] = KeyVal{ Key: iRandomBytes, Value: iRandomBytes }
-	}
-
 	for idx := range pKeyValPairs {
 		pRandomBytes, _ := GenerateRandomBytes(32)
 		pKeyValPairs[idx] = KeyVal{ Key: pRandomBytes, Value: pRandomBytes }
 	}
 
+	for idx := range initKeyValPairs {
+		iRandomBytes, _ := GenerateRandomBytes(32)
+		initKeyValPairs[idx] = KeyVal{ Key: iRandomBytes, Value: iRandomBytes }
+	}
+
 	fmt.Println("seeding parallel test mari")
 
-	for _, val := range initKeyValPairs {
+	for _, kvPair := range initKeyValPairs {
 		putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
-			putTxErr := tx.Put(val.Key, val.Value)
+			putTxErr := tx.Put(kvPair.Key, kvPair.Value)
 			if putTxErr != nil { return putTxErr }
 
 			return nil
@@ -89,11 +89,11 @@ func TestMariParallelReadWrites(t *testing.T) {
 			go func() {
 				defer pRetrieveWG.Done()
 
-				for _, val := range chunk {
+				for _, kv := range chunk {
 					var kvPair *mari.KeyValuePair
 					getErr := parallelMariInst.ReadTx(func(tx *mari.MariTx) error {
 						var getTxErr error
-						kvPair, getTxErr = tx.Get(val.Key, nil)
+						kvPair, getTxErr = tx.Get(kv.Key, nil)
 						if getTxErr != nil { return getTxErr }
 
 						return nil
@@ -101,8 +101,8 @@ func TestMariParallelReadWrites(t *testing.T) {
 
 					if getErr != nil { t.Errorf("error on mari get: %s", getErr.Error()) }
 
-					if ! bytes.Equal(kvPair.Value, val.Value) {
-						t.Errorf("actual value not equal to expected: actual(%s), expected(%s)", kvPair.Value, val.Value)
+					if ! bytes.Equal(kvPair.Value, kv.Value) {
+						t.Errorf("actual value not equal to expected: actual(%s), expected(%s)", kvPair.Value, kv.Value)
 					}
 				}
 			}()
@@ -121,9 +121,9 @@ func TestMariParallelReadWrites(t *testing.T) {
 			go func() {
 				defer pInsertWG.Done()
 
-				for _, val := range chunk {
+				for _, kv := range chunk {
 					putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
-						putTxErr := tx.Put(val.Key, val.Value)
+						putTxErr := tx.Put(kv.Key, kv.Value)
 						if putTxErr != nil { return putTxErr }
 
 						return nil
@@ -135,8 +135,7 @@ func TestMariParallelReadWrites(t *testing.T) {
 		}
 
 		pInsertWG.Wait()
-	})
 
-	pKeyValPairs = nil
-	t.Log("Done")
+		pKeyValPairs = nil
+	})
 }
