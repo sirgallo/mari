@@ -174,7 +174,6 @@ func (mariInst *Mari) swapTempFileWithMari(compact *MariCompaction) error {
 	mariInst.file, openFileErr = os.OpenFile(currFileName, flag, 0600)
 	if openFileErr != nil { return openFileErr }
 
-
 	mmapErr := mariInst.mMap()
 	if mmapErr != nil { return mmapErr }
 
