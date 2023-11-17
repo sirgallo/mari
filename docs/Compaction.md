@@ -12,7 +12,7 @@ A compaction strategy is implemented, where when triggered, will create a snapsh
 
 A separate go routine runs compaction, and on signal, acquires the write lock, blocking all subsequent reads and writes. A tempory memory mapped file is created and dynamically resized as new elements are appended
 
-The overall time complexity is essentially `O(n)`, where n is the number of nodes that are being copied in the snapshot. The operation, which is essentially a cursor, begins at the root of the trie and for each child in the node's child array, scans from least ordered to greatest ordered. As the cursor traverses each level, the next start offset for each node is computed. Once no child nodes are found, the offset is applied and the child is serialized and placed directly at the computed offset in the new memory mapped based off of the new root offset. Then, the operation travels back up the branch, serializing each node as it passes back up to the root, with the end offset of each child being serialized as a pointer into the parent node. The serialized, flattened structure will look as the following:
+The overall time complexity is essentially `O(n * m)`, where `n` is the number of nodes that are being copied in the snapshot and `m` is the number of levels to a key. However, since the structure utilizes compact paths and hence is relatively shallow, this can be amortized to roughly O(n). The operation, which is essentially a cursor, begins at the root of the trie and for each child in the node's child array, scans from least ordered to greatest ordered. As the cursor traverses each level, the next start offset for each node is computed. Once no child nodes are found, the offset is applied and the child is serialized and placed directly at the computed offset in the new memory mapped based off of the new root offset. Then, the operation travels back up the branch, serializing each node as it passes back up to the root, with the end offset of each child being serialized as a pointer into the parent node. The serialized, flattened structure will look as the following:
 ```
                                   root
 level 1                 node 0   node 1    node 2
@@ -20,7 +20,6 @@ level 2           node 0    node 1
 level 3      node 0 node 1 node 2 node 3
 
 root | level 1 node 0 | level 2 node 0 | level 3 node 0 | level 3 node 1 | level 2 node 1 | level 3 node 2 | level 3 node 3 | level 1 node 1 | level 1 node 2
-
 ```
 
 A benefit of compaction is that there will no longer be duplicated paths for different version, reducing overall size of the structure and reducing the space that an operation may need to travel along the memory map to find a node. For iterators and range operations, nodes will be more localized as well reducing the need to load and evict data from the system cache.
