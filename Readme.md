@@ -46,8 +46,6 @@ func main() {
   if homedirErr != nil { panic(homedirErr.Error()) }
   
   // set options
-  // CompactAtVersion can also be passed, but is optional
-  // If not passed, a default of 2,000,000 versions will be used
   opts := mari.MariOpts{ 
     Filepath: filepath,
     FileName: FILENAME,
