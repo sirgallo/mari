@@ -174,7 +174,7 @@ func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
 	isResize := mariInst.determineIfResize(updatedMeta.nextStartOffset)
 	if isResize { return false, nil }
 
-	if mariInst.compactTrigger(updatedMeta) {
+	if ! mariInst.appendOnly && mariInst.compactTrigger(updatedMeta) {
 		mariInst.signalCompact()
 		return false, nil
 	}

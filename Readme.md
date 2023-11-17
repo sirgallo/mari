@@ -10,19 +10,17 @@
 
 ## Overview 
 
-`mari` is a simple, embedded key-value store that utilzes a memory mapped file to back the contents of the data. 
+`mari` is a simple, embedded key-value store that utilzes a memory mapped file to back the contents of the data, implemented purely in `Go`. This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
 
-Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free, so multiple writers and readers can operate on the data in parallel. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added, almost logarithmically as thread count increases. Writers do not lock reads since reads operate on the current/previous version in the data. Since the trie is ordered, range operations and ordered iterations are supported, which are also concurrent and lock free. Writes that succeed are immediately flushed to disk to preserve data integrity. 
+Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free, so multiple writers and readers can operate on the data in parallel, utilizing a form of `MVCC`. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added, almost logarithmically as thread count increases. Writes that succeed are immediately flushed to disk to preserve data integrity. 
 
-Every operation on mari is a transaction. Transactions can be either read only (`ReadTx`) or read-write (`UpdateTx`). Write operations will only modify the current version supplied in the transaction and will be isolated from updates to the data. If a transaction succeeds in full, it is written to the memory map, otherwise it is discarded and retried. This ensures that transactions are `ACID`. Read only transactions are also performed in isolation but can run while read-write operations are occuring. Batching writes into a single transaction can also significantly improve performance of writes, including any writes that occur after the batched write, since all paths for each write will be serialized together onto the memory map instead of writing paths one at a time. This also reduces the amount of node repeats on path copies so the overall footprint on the size of the memory mapped file will decrease. However, if batched writes are too large performance may degrade as the serialized path can take up a significant amount of memory.
+Every operation on `mari` is a transaction. Transactions can be either read only (`ReadTx`) or read-write (`UpdateTx`). Write operations will only modify the current version supplied in the transaction and will be isolated from updates to the data. Transforms can be created for read operations to mutate results before being returned to the user. This can be useful for situations where data pre-processing is required. For more information on transactions, check out [Transactions](./docs/Transactions.md).
 
-Ordered iterations and range operations will also perform better than sequential lookups of singular keys as entire paths do not need to be traversed for each, while a singular key lookup requires full path traversal. If a range of values is required for a lookup, consider using the `Iterate` or `Range` function.
-
-Transforms can be created for read operations to transform results before being returned to the user. This can be useful for situations where data pre-processing is required.
+Since the trie is ordered, range operations and ordered iterations are supported, which are also concurrent and lock free. Ordered iterations and range operations will also perform better than sequential lookups of singular keys as entire paths do not need to be traversed for each, while a singular key lookup requires full path traversal. If a range of values is required for a lookup, consider using `tx.Iterate` or `tx.Range`.
 
 A compaction strategy can also be implemented as well, which is passed in the instance options using the `CompactTrigger` option. [Compaction](./docs/Compaction.md) is explained further in depth here.
 
-This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
+To alleviate pressure on the `Go` garbage collector, a node pool is also utilized, which is explained here [NodePool](./docs/NodePool.md).
 
 
 ## Usage
@@ -31,7 +29,6 @@ This project is an exploration of memory mapped files and taking a different app
 package main
 
 import "os"
-import "path/filepath"
 
 import "github.com/sirgallo/mari"
 
@@ -43,17 +40,12 @@ func main() {
   homedir, homedirErr := os.UserHomeDir()
   if homedirErr != nil { panic(homedirErr.Error()) }
   
-  // set options
   opts := mari.MariOpts{ Filepath: filepath, FileName: FILENAME }
 
-  // open mari
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }
-  
-  // close mari
   defer mariInst.Close()
 
-  // put a value in mari
   putErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
     putTxErr := tx.Put([]byte("hello"), []byte("world"))
     if putTxErr != nil { return putTxErr }
@@ -63,8 +55,6 @@ func main() {
 
   if putErr != nil { panic(putErr.Error()) }
 
-  // get a value in mari
-  // if transform is nil, kvPair is returned as is
   var kvPair *mari.KeyValuePair
   getErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var getTxErr error
@@ -76,111 +66,12 @@ func main() {
 
   if getErr != nil { panic(getErr.Error()) }
 
-  // get a set of ordered iterated key value pairs from a start key to the total result size
-  // if opts is nil, version is set to the earliest version and transform will not be used
-  var iteratedkvPairs []*mari.KeyValuePair
-  iterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
-    var iterTxErr error
-    iteratedkvPairs, iterTxErr = tx.Iterate([]("hello"), 10000, nil)
-    if iterTxErr != nil { return iterTxErr }
-
-    return nil
-  })
-
-  if iterErr != nil { panic(iterErr.Error()) }
-
-  // get a range of key-value pairs from a minimum version
-  // if opts is nil, version is set to the earliest version and transform will not be used
-  var rangekvPairs []*mari.KeyValuePair
-  rangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
-    var rangeTxErr error
-    rangekvPairs, rangeTxErr = tx.Range([]("hello"), []("world"), nil)
-    if rangeTxErr != nil { return rangeTxErr }
-
-    return nil
-  })
-
-  if rangeErr != nil { panic(rangeErr.Error()) }
-
-  // create a transformer to process results before being returned
-  transform := func(kvPair *mari.KeyValuePair) *mari.KeyValuePair {
-    kvPair.Value = append(kvPair.Value, kvPair.Value...)
-    return kvPair
-  }
-
-  // opts for range + iteration functions
-  // can also contain MinVersion for the minimum version
-  rangeOpts := &mari.MariRangeOpts{ Transform: &transform }
-
-  // get a transformed key-value in mari
-  var transformedKvPair *mari.KeyValuePair
-  getTransformedErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
-    var getTxErr error
-    transformedKvPair, getTxErr = tx.Get([]byte("hello"), transform)
-    if getTxErr != nil { return getTxErr }
-
-    return nil
-  })
-
-  if getErr != nil { panic(getErr.Error()) }
-
-  // get a range of key value pairs with transformed values
-  var transformedRangePairs []*mari.KeyValuePair
-  transformedRangeErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
-    var rangeTxErr error
-    transformedRangePairs, rangeTxErr = tx.Range([]("hello"), []("world"), rangeOpts)
-    if rangeTxErr != nil { return rangeTxErr }
-
-    return nil
-  })
-
-  if rangeErr != nil { panic(rangeErr.Error()) }
-
-  // get a set of ordered iterated key value pairs with transformed values
-  var transformedIterPairs []*mari.KeyValuePair
-  transformedIterErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
-    var iterTxErr error
-    transformedIterPairs, iterTxErr = tx.Iterate([]("hello"), 10000, rangeOpts)
-    if iterTxErr != nil { return iterTxErr }
-
-    return nil
-  })
-
-  if transformedIterErr != nil { panic(iterErr.Error()) }
-
-  // perform a mixed read-write transaction
-  var mixedKvPair *mari.KeyValuePair
-  mixedErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
-    putTxErr := tx.Put([]byte("key1"), []byte("value1"))
-    if putTxErr != nil { return putTxErr }
-
-    putTxErr = tx.Put([]byte("key2"), []byte("value2"))
-    if putTxErr != nil { return putTxErr }
-
-    var getTxErr error
-    mixedKvPair, getTxErr = tx.Get([]byte("hello"))
-    if getTxErr != nil { return getTxErr }
-
-    return nil
-  })
-
-  if mixedErr != nil { panic(mixedErr.Error()) }
-
-  // delete a value in mari
-  delErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
-    delTxErr := tx.Delete([]byte("hello"))
-    if delTxErr != nil { return delTxErr }
-
-    return nil
-  })
-
-  if delErr != nil { panic(delErr.Error()) }
-
-  // get mari filesize
   fSize, sizeErr := mariInst.FileSize()
   if sizeErr != nil { panic(sizeErr.Error()) }
 
-  // close mari and remove the associated file
+  closeErr := mariInst.Close()
+  if closeErr != nil { panic(closeErr.Error()) }
+
   removeErr := mariInst.Remove()
   if removeErr != nil { panic(removeErr.Error()) }
 }
@@ -227,3 +118,7 @@ The `mmap` function utilizes `golang.org/x/sys/unix`, so the mmap functionality 
 [Compaction](./docs/Compaction.md)
 
 [Concepts](./docs/Concepts.md)
+
+[NodePool](./docs/NodePool.md)
+
+[Transactions](./docs/Transactions.md)

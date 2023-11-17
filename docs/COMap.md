@@ -62,6 +62,11 @@ Pseudo-code:
 ## Notes
 
 
+### Compact Paths
+
+One optimization made to the data structure is the use of compact paths. When a key-value pair is inserted into the sorted order `AMT`, instead of creating a node for the each byte in the key, the key is terminated when it finds that there are no more children beyond the level it is at, and on later inserts the key-value pair can be shifted down the branch if necessary. This makes for a more compact, flat data structure, where most key-value pairs will exist on the same level within the trie, similar to a B+Tree. This optimization saves valuable wasted space for empty nodes where there are no key value pairs and is a significant factor in the overall performance of `mari`.
+
+
 ### Array Mapping
 
 Using the key, we can determine:
@@ -164,11 +169,6 @@ func (mariInst *Mari) getPosition(bitMap [8]uint32, index byte, level int) int {
 ```
 
 `isolatedBits` is all of the non-zero bits right of the index, which can be calculated by is applying a mask to the bitMap at that particular node. The mask is calculated from all of from the start of the sparse index right.
-
-
-### Compact Paths
-
-One optimization made to the data structure is the use of compact paths. When a key-value pair is inserted into the sorted order `AMT`, instead of creating a node for the each byte in the key, the key is terminated when it finds that there are no more children beyond the level it is at, and on later inserts the key-value pair can be shifted down the branch if necessary. This makes for a more compact, flat data structure, where most key-value pairs will exist on the same level within the trie, similar to a B+Tree. This optimization saves valuable wasted space for empty nodes where there are no key value pairs and is a significant factor in the overall performance of `mari`.
 
 
 ### Path Copying

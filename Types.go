@@ -19,6 +19,8 @@ type MariOpts struct {
 	NodePoolSize *int64
 	// CompactionTrigger: the custom compaction trigger function
 	CompactTrigger *MariCompactionTrigger
+	// AppendOnly: optionally pass true to stop the compaction process from occuring
+	AppendOnly *bool
 }
 
 // MariMetaData contains information related to where the root is located in the mem map and the version.
@@ -97,6 +99,8 @@ type Mari struct {
 	nodePool *MariNodePool
 	// compactAtVersion: the max version the root can be before being compacted
 	compactTrigger MariCompactionTrigger
+	// appendOnly: a flag to determine whether or not to perform the compaction process. By default will be false
+	appendOnly bool
 }
 
 // MariNodePool contains pre-allocated MariINodes/MariLNodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op

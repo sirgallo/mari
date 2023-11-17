@@ -28,6 +28,10 @@ func Open(opts MariOpts) (*Mari, error) {
 		mariInst.nodePool = newMariNodePool(nodePoolSize)
 	} else { mariInst.nodePool = newMariNodePool(DefaultNodePoolSize) }
 
+	if opts.AppendOnly != nil {
+		mariInst.appendOnly = *opts.AppendOnly
+	} else { mariInst.appendOnly = false }
+
 	if opts.CompactTrigger != nil {	
 		mariInst.compactTrigger = *opts.CompactTrigger
 	} else { 
