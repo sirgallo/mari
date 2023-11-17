@@ -12,7 +12,7 @@ The test suite consists of a few different tests, as follows:
   5. SingleThread_test - test the single threaded performance for individual operations
   6. MMap_test - test the mmap function behind memory mapping the mari file
 
-constant values can be modified in `Shared` to check performance characteristics of different ratios of readers/writers, total input sizes, etc.
+Constant values can be modified in `Shared` to check performance characteristics of different ratios of readers/writers, total input sizes, etc.
 
 Tests have been run using both `go test` and `go test -race`, to try and catch any race conditions, especially in the concurrent/parallel tests. Use of `-race` will cause tests to run significantly slower since the flag makes the go test tool run a memory profiling tool while the tests execute.
 
@@ -100,7 +100,6 @@ iteration size of 500,000
   PASS: TestMariTransactionOperations/Test_Batched_Read_Operations (12.71s)
   PASS: TestMariTransactionOperations/Test_Iterate_Operation (0.52s)
   PASS: TestMariTransactionOperations/Test_Delete_Operations (22.16s)
-  PASS: TestMariTransactionOperations/Mari_File_Size (0.00s)
 
 10,000,000 kv pairs:
   PASS: TestMariTransactionOperations/Test_Write_Operations (76.21s)
@@ -111,11 +110,11 @@ iteration size of 500,000
   PASS: TestMariTransactionOperations/Test_Delete_Operations (78.78s)
 
 30,000,000 kv pairs:
+  PASS: TestMariTransactionOperations/Test_Write_Operations (834.34s)
   PASS: TestMariTransactionOperations/Test_Read_Operations (562.32s) 
   PASS: TestMariTransactionOperations/Test_Read_Operations_After_Reopen (578.96s)
   PASS: TestMariTransactionOperations/Test_Batched_Read_Operations (567.77s)
   PASS: TestMariTransactionOperations/Test_Iterate_Operation (4.79s)
-  PASS: TestMariTransactionOperations/Test_Mixed_Operation (1.75s)
   PASS: TestMariTransactionOperations/Test_Delete_Operations (1817.45s)
 ```
 
