@@ -42,13 +42,13 @@ const FILENAME = "<your-file-name>"
 func main() {
   homedir, homedirErr := os.UserHomeDir()
   if homedirErr != nil { panic(homedirErr.Error()) }
-
-  // initialize mari filepath
-  filepath := filepath.Join(homedir, FILENAME)
   
   // set options
+  // CompactAtVersion can also be passed, but is optional
+  // If not passed, a default of 2,000,000 versions will be used
   opts := mari.MariOpts{ 
     Filepath: filepath,
+    FileName: FILENAME,
     NodePoolSize: int64(1000000),
   }
 
@@ -235,5 +235,7 @@ The `mmap` function utilizes `golang.org/x/sys/unix`, so the mmap functionality 
 ## Sources
 
 [COMap](./docs/COMap.md)
+
+[Compaction](./docs/Compaction.md)
 
 [Concepts](./docs/Concepts.md)

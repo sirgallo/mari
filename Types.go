@@ -13,8 +13,12 @@ type MMap []byte
 type MariOpts struct {
 	// Filepath: the path to the memory mapped file
 	Filepath string
+	// FileName: the name of the file for the mari instance
+	FileName string
 	// NodePoolSize: the total number of pre-allocated nodes to create in the node pool
 	NodePoolSize int64
+	// CompactAtVersion: the version at which the compaction operation should occur
+	CompactAtVersion *uint64
 }
 
 // MariMetaData contains information related to where the root is located in the mem map and the version.
@@ -71,35 +75,43 @@ type KeyValuePair struct {
 
 // Mari contains the memory mapped buffer for Mari, as well as all metadata for operations to occur
 type Mari struct {
-	// Filepath: path to the Mari file
+	// filepath: path to the Mari file
 	filepath string
-	// File: the Mari file
+	// file: the Mari file
 	file *os.File
-	// Opened: flag indicating if the file has been opened
+	// versionIndex: a memory mapped file that stores the version offsets
+	versionIndex *os.File
+	// opened: flag indicating if the file has been opened
 	opened bool
-	// Data: the memory mapped file as a byte slice
+	// data: the memory mapped file as a byte slice
 	data atomic.Value
-	// IsResizing: atomic flag to determine if the mem map is being resized or not
+	// vIdx: the memory mapped file for the version index
+	vIdx atomic.Value
+	// isResizing: atomic flag to determine if the mem map is being resized or not
 	isResizing uint32
-	// SignalResize: send a signal to the resize go routine with the offset for resizing
+	// signalResize: send a signal to the resize go routine with the offset for resizing
 	signalResizeChan chan bool
-	// SignalFlush: send a signal to flush to disk on writes to avoid contention
+	// signalFlush: send a signal to flush to disk on writes to avoid contention
 	signalFlushChan chan bool
+	// signalCompactChan: send a signal to compact the database
+	signalCompactChan chan bool
 	// ReadResizeLock: A Read-Write mutex for locking reads on resize operations
 	rwResizeLock sync.RWMutex
 	// NodePool: the sync.Pool for recycling nodes so nodes are not constantly allocated/deallocated
 	nodePool *MariNodePool
+	// compactAtVersion: the max version the root can be before being compacted
+	compactAtVersion uint64
 }
 
 // MariNodePool contains pre-allocated MariINodes/MariLNodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op
 type MariNodePool struct {
-	// MaxSize: the max size for the node pool
+	// maxSize: the max size for the node pool
 	maxSize int64
-	// Size: the current number of allocated nodes in the node pool
+	// size: the current number of allocated nodes in the node pool
 	size int64
-	// INodePool: the node pool that contains pre-allocated internal nodes
+	// iNodePool: the node pool that contains pre-allocated internal nodes
 	iNodePool *sync.Pool
-	// LNodePool: the node pool that contains pre-allocated leaf nodes
+	// lNodePool: the node pool that contains pre-allocated leaf nodes
 	lNodePool *sync.Pool
 }
 
@@ -124,8 +136,21 @@ type MariTx struct {
 	isWrite bool
 }
 
+// MariCompaction represents the compaction strategy for removing unused versions
+type MariCompaction struct {
+	// tempFile: the temporary file for compacting the db
+	tempFile *os.File
+	// tempData: the temporary memory mapped file as byte slice
+	tempData atomic.Value
+	// compactedVersion: the version to compact at
+	compactedVersion uint64
+}
+
 // DefaultPageSize is the default page size set by the underlying OS. Usually will be 4KiB
 var DefaultPageSize = os.Getpagesize()
+
+const VersionIndexFileName = "mari_version_index"
+const MaxCompactVersion = 2000000
 
 const (
 	// Index of Mari Version in serialized metadata

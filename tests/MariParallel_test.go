@@ -10,7 +10,6 @@ import "testing"
 import "github.com/sirgallo/mari"
 
 
-var pTestPath = filepath.Join(os.TempDir(), "testparallel")
 var parallelMariInst *mari.Mari
 var initKeyValPairs []KeyVal
 var pKeyValPairs []KeyVal
@@ -19,11 +18,16 @@ var pInsertWG, pRetrieveWG sync.WaitGroup
 
 
 func setup() {
-	os.Remove(pTestPath)
-	
+	os.Remove(filepath.Join(os.TempDir(), "testparallel"))
+	os.Remove(filepath.Join(os.TempDir(), "testparallel" + mari.VersionIndexFileName))
+	os.Remove(filepath.Join(os.TempDir(), "testparalleltemp"))
+
+	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
-		Filepath: pTestPath,
-		NodePoolSize: NODEPOOL_SIZE, 
+		Filepath: os.TempDir(),
+		FileName: "testparallel",
+		NodePoolSize: NODEPOOL_SIZE,
+		CompactAtVersion: &compactAtVersion,
 	}
 	
 	parallelMariInst, pInitMariErr = mari.Open(opts)

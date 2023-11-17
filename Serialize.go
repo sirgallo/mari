@@ -25,7 +25,7 @@ func (meta *MariMetaData) serializeMetaData() []byte {
 
 // deserializeINode
 //	Deserialize the byte representation of an internal in the memory mapped file.
-func (mmcMap *Mari) deserializeINode(snode []byte) (*MariINode, error) {
+func deserializeINode(snode []byte) (*MariINode, error) {
 	version, decVersionErr := deserializeUint64(snode[NodeVersionIdx:NodeStartOffsetIdx])
 	if decVersionErr != nil { return nil, decVersionErr }
 
@@ -75,7 +75,7 @@ func (mmcMap *Mari) deserializeINode(snode []byte) (*MariINode, error) {
 
 // deserializeLNode
 //	Deserialize the byte representation of a leaf node in the memory mapped file.
-func (mmcMap *Mari) deserializeLNode(snode []byte) (*MariLNode, error) {
+func deserializeLNode(snode []byte) (*MariLNode, error) {
 	version, decVersionErr := deserializeUint64(snode[NodeVersionIdx:NodeStartOffsetIdx])
 	if decVersionErr != nil { return nil, decVersionErr }
 
@@ -103,8 +103,8 @@ func (mmcMap *Mari) deserializeLNode(snode []byte) (*MariLNode, error) {
 
 // serializePathToMemMap
 //	Serializes a path copy by starting at the root, getting the latest available offset in the memory map, and recursively serializing.
-func (mmcMap *Mari) serializePathToMemMap(root *MariINode, nextOffsetInMMap uint64) ([]byte, error) {
-	serializedPath, serializeErr := mmcMap.serializeRecursive(root, 0, nextOffsetInMMap)
+func (mariInst *Mari) serializePathToMemMap(root *MariINode, nextOffsetInMMap uint64) ([]byte, error) {
+	serializedPath, serializeErr := mariInst.serializeRecursive(root, 0, nextOffsetInMMap)
 	if serializeErr != nil { return nil, serializeErr }
 
 	return serializedPath, nil
@@ -114,7 +114,7 @@ func (mmcMap *Mari) serializePathToMemMap(root *MariINode, nextOffsetInMMap uint
 //	Traverses the path copy down to the end of the path.
 //	If the node is a leaf, serialize it and return. If the node is a internal node, serialize each of the children recursively if
 //	the version matches the version of the root. If it is an older version, just serialize the existing offset in the memory map.
-func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64) ([]byte, error) {
+func (mariInst *Mari) serializeRecursive(node *MariINode, level int, offset uint64) ([]byte, error) {
 	node.startOffset = offset
 	
 	sNode, serializeErr := node.serializeINode(true)
@@ -131,7 +131,7 @@ func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64
 			sNode = append(sNode, serializeUint64(child.startOffset)...)
 		} else {
 			sNode = append(sNode, serializeUint64(nextStartOffset)...)
-			childrenOnPath, serializeErr := mmcMap.serializeRecursive(child, level + 1, nextStartOffset)
+			childrenOnPath, serializeErr := mariInst.serializeRecursive(child, level + 1, nextStartOffset)
 			if serializeErr != nil { return nil, serializeErr }
 
 			nextStartOffset += getSerializedNodeSize(childrenOnPath)
@@ -143,8 +143,8 @@ func (mmcMap *Mari) serializeRecursive(node *MariINode, level int, offset uint64
 
 	if len(childrenOnPaths) > 0 { sNode = append(sNode, childrenOnPaths...) }
 
-	mmcMap.nodePool.putLNode(node.leaf)
-	mmcMap.nodePool.putINode(node)
+	mariInst.nodePool.putLNode(node.leaf)
+	mariInst.nodePool.putINode(node)
 	
 	return sNode, nil
 }

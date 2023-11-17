@@ -2,8 +2,6 @@ package mari
 
 import "fmt"
 import "math/bits"
-import "sync/atomic"
-import "unsafe"
 
 
 
@@ -13,16 +11,16 @@ import "unsafe"
 // Print children
 //	Debugging function for printing nodes in the ordered array mapped trie.
 func (mariInst *Mari) PrintChildren() error {
-	mMap := mariInst.data.Load().(MMap)
-	rootOffsetPtr := (*uint64)(unsafe.Pointer(&mMap[MetaRootOffsetIdx]))
-	rootOffset := atomic.LoadUint64(rootOffsetPtr)
+	_, rootOffset, readRootOffErr := mariInst.loadMetaRootOffset()
+	if readRootOffErr != nil { return readRootOffErr }
 
 	currRoot, readRootErr := mariInst.readINodeFromMemMap(rootOffset)
 	if readRootErr != nil { return readRootErr }
 	
-	readChildrenErr := mariInst.printChildrenRecursive(currRoot, 0)
+	totalCount, readChildrenErr := mariInst.printChildrenRecursive(currRoot, 0, 0)
 	if readChildrenErr != nil { return readChildrenErr }
 
+	fmt.Println("total count of elements:", totalCount)
 	return nil
 }
 
@@ -58,7 +56,7 @@ func getIndexForLevel(key []byte, level int) byte {
 //	This creates a binary number with all 1s to the right sparse index positions.
 //	The mask is then applied the bitmap and the resulting isolated bits are the 1s right of the sparse index. 
 //	The hamming weight, or total bits right of the sparse index, is then calculated.
-func (mariInst *Mari) getPosition(bitMap [8]uint32, index byte, level int) int {
+func getPosition(bitMap [8]uint32, index byte, level int) int {
 	subBitmapIndex := index >> 5
 	indexInSubBitmap := index & 0x1F
 	precedingSubBitmapsCount := 0
@@ -150,19 +148,24 @@ func shrinkTable(orig []*MariINode, bitmap [8]uint32, pos int) []*MariINode {
 
 // printChildrenRecursive
 //	Recursively print nodes in the mariInst as we traverse down levels.
-func (mariInst *Mari) printChildrenRecursive(node *MariINode, level int) error {
-	if node == nil { return nil }
+func (mariInst *Mari) printChildrenRecursive(node *MariINode, totalCount, level int) (int, error) {
+	if node == nil { return 0, nil }
 
 	for idx := range node.children {
 		childPtr := node.children[idx]
 		child, desErr := mariInst.readINodeFromMemMap(childPtr.startOffset)
-		if desErr != nil { return desErr }
+		if desErr != nil { return 0, desErr }
 
 		if child != nil {
-			fmt.Printf("Level: %d, Index: %d, Key: %s, Value: %s, Version:%d\n", level + 1, idx, child.leaf.key, string(child.leaf.value), child.leaf.version)
-			mariInst.printChildrenRecursive(child, level + 1)
+			if len(child.leaf.key) > 0 { totalCount += 1 }
+
+			fmt.Printf("Level: %d, Index: %d, Key: %s, Value: %s, Version:%d\n", level + 1, idx, child.leaf.key, child.leaf.value, child.leaf.version)
+			newtotalCount, printErr := mariInst.printChildrenRecursive(child, totalCount, level + 1)
+			if printErr != nil { return 0, printErr }
+
+			totalCount = newtotalCount
 		}
 	}
 
-	return nil
+	return totalCount, nil
 }

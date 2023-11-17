@@ -1,5 +1,6 @@
 package mari
 
+import "fmt"
 import "runtime"
 import "sync/atomic"
 import "unsafe"
@@ -63,7 +64,10 @@ func (mariInst *Mari) handleFlush() {
 			mariInst.rwResizeLock.RLock()
 			defer mariInst.rwResizeLock.RUnlock()
 
-			mariInst.file.Sync()
+			flushErr := mariInst.file.Sync()
+			if flushErr != nil { 
+				fmt.Println("error flushing to disk") 
+			} else { mariInst.versionIndex.Sync() }
 		}()
 	}
 }
@@ -82,6 +86,16 @@ func (mariInst *Mari) mMap() error {
 	if mmapErr != nil { return mmapErr }
 
 	mariInst.data.Store(mMap)
+
+	return nil
+}
+
+func (mariInst *Mari) mMapVIdx() error {
+	vIdx, vIdxErr := Map(mariInst.versionIndex, RDWR, 0)
+	if vIdxErr != nil { return vIdxErr }
+
+	mariInst.vIdx.Store(vIdx)
+
 	return nil
 }
 
@@ -93,6 +107,15 @@ func (mariInst *Mari) munmap() error {
 	if unmapErr != nil { return unmapErr }
 
 	mariInst.data.Store(MMap{})
+	return nil
+}
+
+func (mariInst *Mari) munmapVIdx() error {
+	vIdx := mariInst.vIdx.Load().(MMap)
+	unmapErr := vIdx.Unmap()
+	if unmapErr != nil { return unmapErr }
+
+	mariInst.vIdx.Store(MMap{})
 	return nil
 }
 
@@ -173,13 +196,19 @@ func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
 	isResize := mariInst.determineIfResize(updatedMeta.nextStartOffset)
 	if isResize { return false, nil }
 
+
+	if version >= mariInst.compactAtVersion {
+		mariInst.signalCompact()
+		return false, nil
+	}
+
 	if atomic.LoadUint32(&mariInst.isResizing) == 0 {
 		if version == updatedMeta.version - 1 && atomic.CompareAndSwapUint64(versionPtr, version, updatedMeta.version) {
 			mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.nextStartOffset)
 			
 			_, writeNodesToMmapErr := mariInst.writeNodesToMemMap(serializedPath, newOffsetInMMap)
 			if writeNodesToMmapErr != nil {
-				mariInst.storeMetaPointer(endOffsetPtr, updatedMeta.nextStartOffset)
+				mariInst.storeMetaPointer(endOffsetPtr, endOffset)
 				mariInst.storeMetaPointer(versionPtr, version)
 				mariInst.storeMetaPointer(rootOffsetPtr, prevRootOffset)
 
@@ -187,8 +216,10 @@ func (mariInst *Mari) exclusiveWriteMmap(path *MariINode) (bool, error) {
 			}
 			
 			mariInst.storeMetaPointer(rootOffsetPtr, updatedMeta.rootOffset)
+			mariInst.storeStartOffset(updatedMeta.version, updatedMeta.rootOffset)
+
 			mariInst.signalFlush()
-			
+
 			return true, nil
 		}
 	}

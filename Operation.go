@@ -27,7 +27,7 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 
 	putNewINode := func(node *MariINode, currIdx byte, uKey, uVal []byte) (*MariINode, error) {
 		node.bitmap = setBit(node.bitmap, currIdx)
-		pos := mariInst.getPosition(node.bitmap, currIdx, level)
+		pos := getPosition(node.bitmap, currIdx, level)
 
 		newINode := mariInst.newInternalNode(node.version)
 		iNodePtr := storeINodeAsPointer(newINode)
@@ -99,7 +99,7 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 										nodeCopy, putErr = putNewINode(nodeCopy, newIdx, currentLeaf.key, currentLeaf.value)
 										if putErr != nil { return false, putErr }
 									} else {
-										newPos := mariInst.getPosition(nodeCopy.bitmap, newIdx, level)
+										newPos := getPosition(nodeCopy.bitmap, newIdx, level)
 										
 										childOffset := nodeCopy.children[newPos]
 										childNode, getChildErr := mariInst.getChildNode(childOffset, nodeCopy.version)
@@ -120,7 +120,7 @@ func (mariInst *Mari) putRecursive(node *unsafe.Pointer, key, value []byte, leve
 					if putErr != nil { return false, putErr }
 				}
 			default:
-				pos := mariInst.getPosition(nodeCopy.bitmap, index, level)
+				pos := getPosition(nodeCopy.bitmap, index, level)
 
 				childOffset := nodeCopy.children[pos]
 				childNode, getChildErr := mariInst.getChildNode(childOffset, nodeCopy.version)
@@ -170,7 +170,7 @@ func (mariInst *Mari) getRecursive(node *unsafe.Pointer, key []byte, level int, 
 			case ! isBitSet(currNode.bitmap, index):
 				return nil, nil
 			default:
-				pos := mariInst.getPosition(currNode.bitmap, index, level)
+				pos := getPosition(currNode.bitmap, index, level)
 				childOffset := currNode.children[pos]
 
 				childNode, getChildErr := mariInst.getChildNode(childOffset, currNode.version)
@@ -214,8 +214,10 @@ func (mariInst *Mari) deleteRecursive(node *unsafe.Pointer, key []byte, level in
 		switch {
 			case bytes.Equal(nodeCopy.leaf.key, key):
 				return deleteKeyVal(), nil
+			case ! isBitSet(nodeCopy.bitmap, index):
+				return true, nil
 			default:
-				pos := mariInst.getPosition(nodeCopy.bitmap, index, level)
+				pos := getPosition(nodeCopy.bitmap, index, level)
 				childOffset := nodeCopy.children[pos]
 		
 				childNode, getChildErr := mariInst.getChildNode(childOffset, nodeCopy.version)

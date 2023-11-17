@@ -68,7 +68,7 @@ func (mariInst *Mari) getChildNode(childOffset *MariINode, version uint64) (*Mar
 	var childNode *MariINode
 	var desErr error
 
-	if childOffset.version == version {
+	if childOffset.version == version && childOffset.startOffset == 0 {
 		childNode = childOffset
 	} else {
 		childNode, desErr = mariInst.readINodeFromMemMap(childOffset.startOffset)
@@ -92,6 +92,8 @@ func (mariInst *Mari) initRoot() (uint64, error) {
 
 	endOffset, writeNodeErr := mariInst.writeINodeToMemMap(root)
 	if writeNodeErr != nil { return 0, writeNodeErr }
+
+	mariInst.storeStartOffset(0, 0)
 
 	return endOffset, nil
 }
@@ -144,7 +146,7 @@ func (mariInst *Mari) readINodeFromMemMap(startOffset uint64) (node *MariINode, 
 	if decEndOffErr != nil { return nil, decEndOffErr }
 
 	sNode := mMap[startOffset:endOffset + 1]
-	node, decNodeErr := mariInst.deserializeINode(sNode)
+	node, decNodeErr := deserializeINode(sNode)
 	if decNodeErr != nil { return nil, decNodeErr }
 
 	leaf, readLeafErr := mariInst.readLNodeFromMemMap(node.leaf.startOffset)
@@ -173,7 +175,7 @@ func (mariInst *Mari) readLNodeFromMemMap(startOffset uint64) (node *MariLNode, 
 	if decEndOffErr != nil { return nil, decEndOffErr }
 
 	sNode := mMap[startOffset:endOffset + 1]
-	node, decNodeErr := mariInst.deserializeLNode(sNode)
+	node, decNodeErr := deserializeLNode(sNode)
 	if decNodeErr != nil { return nil, decNodeErr }
 
 	return node, nil

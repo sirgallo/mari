@@ -42,7 +42,7 @@ func (mariInst *Mari) iterateRecursive(
 				}
 
 				startKeyIndex := getIndexForLevel(startKey, level)
-				startKeyPos = mariInst.getPosition(currNode.bitmap, startKeyIndex, level)
+				startKeyPos = getPosition(currNode.bitmap, startKeyIndex, level)
 			default:
 				if currNode.leaf.version >= minVersion && len(currNode.leaf.key) > 0 { 
 					acc = append(acc, transform(genKeyValPair(currNode)))
@@ -52,7 +52,7 @@ func (mariInst *Mari) iterateRecursive(
 		}
 	} else {
 		startKeyIdx := getIndexForLevel(startKey, level)
-		startKeyPos = mariInst.getPosition(currNode.bitmap, startKeyIdx, level)
+		startKeyPos = getPosition(currNode.bitmap, startKeyIdx, level)
 	}
 
 	if len(currNode.children) > 0 {

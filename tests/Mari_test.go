@@ -8,17 +8,20 @@ import "testing"
 import "github.com/sirgallo/mari"
 
 
-var TestPath = filepath.Join(os.TempDir(), "testmari")
 var mariInst *mari.Mari
 
 
 func init() {
+	os.Remove(filepath.Join(os.TempDir(), "testmari"))
+	os.Remove(filepath.Join(os.TempDir(), "testmari" + mari.VersionIndexFileName))
+	os.Remove(filepath.Join(os.TempDir(), "testmaritemp"))
+
 	var initPCMapErr error
-	os.Remove(TestPath)
 	
 	opts := mari.MariOpts{ 
-		Filepath: TestPath,
-		NodePoolSize: 100, 
+		Filepath: os.TempDir(),
+		FileName: "testmari",
+		NodePoolSize: 100,
 	}
 	
 	mariInst, initPCMapErr = mari.Open(opts)

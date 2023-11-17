@@ -11,7 +11,6 @@ import "testing"
 import "github.com/sirgallo/mari"
 
 
-var txTestPath = filepath.Join(os.TempDir(), "testtx")
 var txMariInst *mari.Mari
 var txKeyValPairs []KeyVal
 var txInitMariErr error
@@ -19,11 +18,16 @@ var txDelWG, txInsertWG, txIterWG, txRetrieveWG sync.WaitGroup
 
 
 func init() {
-	os.Remove(txTestPath)
-	
+	os.Remove(filepath.Join(os.TempDir(), "testtransaction"))
+	os.Remove(filepath.Join(os.TempDir(), "testtransaction" + mari.VersionIndexFileName))
+	os.Remove(filepath.Join(os.TempDir(), "testtransactiontemp"))
+
+	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
-		Filepath: txTestPath,
+		Filepath: os.TempDir(),
+		FileName: "testtransaction",
 		NodePoolSize: NODEPOOL_SIZE,
+		CompactAtVersion: &compactAtVersion,
 	}
 
 	txMariInst, txInitMariErr = mari.Open(opts)
@@ -106,9 +110,12 @@ func TestMariTransactionOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
+		compactAtVersion := uint64(1000000)
 		opts := mari.MariOpts{ 
-			Filepath: txTestPath,
-			NodePoolSize: NODEPOOL_SIZE, 
+			Filepath: os.TempDir(),
+			FileName: "testtransaction",
+			NodePoolSize: NODEPOOL_SIZE,
+			CompactAtVersion: &compactAtVersion,
 		}
 		
 		txMariInst, txInitMariErr = mari.Open(opts)

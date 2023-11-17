@@ -27,6 +27,11 @@ func newTx(mariInst *Mari, rootPtr *unsafe.Pointer, isWrite bool) *MariTx {
 //	It gets the latest version of the ordered array mapped trie and starts from that offset in the mem-map.
 //	Get is concurrent since it will perform the operation on an existing path, so new paths can be written at the same time with new versions.
 func (mariInst *Mari) ReadTx(txOps func(tx *MariTx) error) error {
+	for atomic.LoadUint32(&mariInst.isResizing) == 1 { runtime.Gosched() }
+	
+	mariInst.rwResizeLock.RLock()
+	defer mariInst.rwResizeLock.RUnlock()
+
 	_, rootOffset, loadROffErr := mariInst.loadMetaRootOffset()
 	if loadROffErr != nil { return loadROffErr }
 

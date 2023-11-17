@@ -1,9 +1,9 @@
 package mari
 
 import "os"
+import "fmt"
+import "path/filepath"
 import "sync/atomic"
-
-import "github.com/sirgallo/utils"
 
 
 //============================================= Mari
@@ -15,27 +15,48 @@ import "github.com/sirgallo/utils"
 //	An initial root MariINode will also be written to the memory map as well.
 func Open(opts MariOpts) (*Mari, error) {
 	np := newMariNodePool(opts.NodePoolSize)	// let's initialize with 100,000 pre-allocated nodes
+	
+	fileWithFilePath := filepath.Join(opts.Filepath, opts.FileName)
+	versionWithFilePath := filepath.Join(opts.Filepath, opts.FileName + VersionIndexFileName)
 
 	mariInst := &Mari{
+		filepath: opts.Filepath,
 		opened: true,
-		signalResizeChan: make(chan bool),
+		signalCompactChan: make(chan bool),
 		signalFlushChan: make(chan bool),
+		signalResizeChan: make(chan bool),
 		nodePool: np,
 	}
 
-	flag := os.O_RDWR | os.O_CREATE | os.O_APPEND
-	var openFileErr error
+	if opts.CompactAtVersion != nil {
+		compactVersion := *opts.CompactAtVersion
+		
+		if compactVersion > MaxCompactVersion {
+			fmt.Println("compact version higher than", MaxCompactVersion, "setting to default...")
+			mariInst.compactAtVersion = MaxCompactVersion
+		} else { mariInst.compactAtVersion = compactVersion }
+	} else { mariInst.compactAtVersion = MaxCompactVersion }
 
-	mariInst.file, openFileErr = os.OpenFile(opts.Filepath, flag, 0600)
+	flag := os.O_RDWR | os.O_CREATE | os.O_APPEND
+	var openFileErr, openVIdxErr error
+
+	mariInst.file, openFileErr = os.OpenFile(fileWithFilePath, flag, 0600)
 	if openFileErr != nil { return nil, openFileErr	}
 
-	mariInst.filepath = mariInst.file.Name()
+	mariInst.versionIndex, openVIdxErr = os.OpenFile(versionWithFilePath, flag, 0600)
+	if openVIdxErr != nil { return nil, openVIdxErr }
+
+	mariInst.filepath = opts.Filepath
+	
 	atomic.StoreUint32(&mariInst.isResizing, 0)
+	
 	mariInst.data.Store(MMap{})
+	mariInst.vIdx.Store(MMap{})
 
 	initFileErr := mariInst.initializeFile()
 	if initFileErr != nil { return nil, initFileErr	}
 
+	go mariInst.compactHandler()
 	go mariInst.handleFlush()
 	go mariInst.handleResize()
 
@@ -54,12 +75,23 @@ func (mariInst *Mari) Close() error {
 	unmapErr := mariInst.munmap()
 	if unmapErr != nil { return unmapErr }
 
+	flushVIdxErr := mariInst.versionIndex.Sync()
+	if flushVIdxErr != nil { return flushVIdxErr }
+
+	unmapVIdxErr := mariInst.munmapVIdx()
+	if unmapVIdxErr != nil { return unmapVIdxErr }
+
 	if mariInst.file != nil {
 		closeErr := mariInst.file.Close()
 		if closeErr != nil { return closeErr }
 	}
 
-	mariInst.filepath = utils.GetZero[string]()
+	if mariInst.versionIndex != nil {
+		closeErr := mariInst.versionIndex.Close()
+		if closeErr != nil { return closeErr }
+	}
+
+	// mariInst.filepath = utils.GetZero[string]()
 	return nil
 }
 
@@ -82,6 +114,9 @@ func (mariInst *Mari) Remove() error {
 	removeErr := os.Remove(mariInst.file.Name())
 	if removeErr != nil { return removeErr }
 
+	removeErr = os.Remove(mariInst.versionIndex.Name())
+	if removeErr != nil { return removeErr }
+
 	return nil
 }
 
@@ -98,13 +133,22 @@ func (mariInst *Mari) initializeFile() error {
 			_, resizeErr := mariInst.resizeMmap()
 			if resizeErr != nil { return resizeErr }
 
+			truncateErr := mariInst.versionIndex.Truncate(int64(DefaultPageSize) * 8 * 1000)
+			if truncateErr != nil { return truncateErr }
+
+			mmapErr := mariInst.mMapVIdx()
+			if mmapErr != nil { return mmapErr }
+
 			endOffset, initRootErr := mariInst.initRoot()
 			if initRootErr != nil { return initRootErr }
 
 			initMetaErr := mariInst.initMeta(endOffset)
 			if initMetaErr != nil { return initMetaErr }
 		default:
-			mmapErr := mariInst.mMap()
+			mmapErr := mariInst.mMapVIdx()
+			if mmapErr != nil { return mmapErr }
+
+			mmapErr = mariInst.mMap()
 			if mmapErr != nil { return mmapErr }
 	}
 

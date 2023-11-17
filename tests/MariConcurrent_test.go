@@ -2,8 +2,8 @@ package maritests
 
 import "bytes"
 import "fmt"
-import "os"
 import "path/filepath"
+import "os"
 import "sync"
 import "sync/atomic"
 import "testing"
@@ -11,7 +11,6 @@ import "testing"
 import "github.com/sirgallo/mari"
 
 
-var cTestPath = filepath.Join(os.TempDir(), "testconcurrent")
 var concurrentMariInst *mari.Mari
 var keyValPairs []KeyVal
 var initMariErr error
@@ -19,11 +18,16 @@ var delWG, insertWG, iterWG, rangeWG, retrieveWG sync.WaitGroup
 
 
 func init() {
-	os.Remove(cTestPath)
-	
+	os.Remove(filepath.Join(os.TempDir(), "testconcurrent"))
+	os.Remove(filepath.Join(os.TempDir(), "testconcurrent" + mari.VersionIndexFileName))
+	os.Remove(filepath.Join(os.TempDir(), "testconcurrenttemp"))
+
+	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
-		Filepath: cTestPath,
+		Filepath: os.TempDir(),
+		FileName: "testconcurrent",
 		NodePoolSize: NODEPOOL_SIZE,
+		CompactAtVersion: &compactAtVersion,
 	}
 
 	concurrentMariInst, initMariErr = mari.Open(opts)
@@ -32,14 +36,14 @@ func init() {
 		panic(initMariErr.Error())
 	}
 
-	fmt.Println("concurrent test mari initialized")
-
 	keyValPairs = make([]KeyVal, INPUT_SIZE)
 
 	for idx := range keyValPairs {
 		randomBytes, _ := GenerateRandomBytes(32)
 		keyValPairs[idx] = KeyVal{ Key: randomBytes, Value: randomBytes }
 	}
+
+	fmt.Println("concurrent test mari initialized")
 }
 
 
@@ -101,7 +105,13 @@ func TestMariConcurrentOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		opts := mari.MariOpts{ Filepath: cTestPath }
+		compactAtVersion := uint64(1000000)
+		opts := mari.MariOpts{ 
+			Filepath: os.TempDir(),
+			FileName: "testconcurrent",
+			NodePoolSize: NODEPOOL_SIZE,
+			CompactAtVersion: &compactAtVersion,
+		}
 		
 		concurrentMariInst, initMariErr = mari.Open(opts)
 		if initMariErr != nil {
