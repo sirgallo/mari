@@ -213,7 +213,7 @@ func TestMariTransactionOperations(t *testing.T) {
 
 		txIterWG.Wait()
 
-		t.Log("total elements returned:", totalElements)
+		t.Log("total elements returned on iterate:", totalElements)
 	})
 
 	t.Run("Test Mixed Operation", func(t *testing.T) {

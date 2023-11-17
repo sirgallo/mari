@@ -4,6 +4,7 @@ import "bytes"
 import "fmt"
 import "os"
 import "path/filepath"
+import "sync/atomic"
 import "testing"
 
 import "github.com/sirgallo/mari"
@@ -111,57 +112,69 @@ func TestMariSingleThreadOperations(t *testing.T) {
 	})
 
 	t.Run("Test Iterate Operation", func(t *testing.T) {
-		first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
-		if randomErr != nil { t.Error("error generating random min max") }
+		totalElements := uint64(0)
 
-		start := stkeyValPairs[first].Key
+		for range make([]int, NUM_READER_GO_ROUTINES) {
+			first, _, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
+			if randomErr != nil { t.Error("error generating random min max") }
+	
+			start := stkeyValPairs[first].Key
+	
+			var kvPairs []*mari.KeyValuePair
+			iterErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
+				var iterTxErr error
+				kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
+				if iterTxErr != nil { return iterTxErr }
+	
+				return nil
+			})
+	
+			if iterErr != nil { t.Errorf("error on mari get: %s", iterErr.Error()) }
+			
+			atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
 
-		var kvPairs []*mari.KeyValuePair
-		iterErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
-			var iterTxErr error
-			kvPairs, iterTxErr = tx.Iterate(start, ITERATE_SIZE, nil)
-			if iterTxErr != nil { return iterTxErr }
+			isSorted := IsSorted(kvPairs)
+			if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
+		}
 
-			return nil
-		})
-
-		if iterErr != nil { t.Errorf("error on mari get: %s", iterErr.Error()) }
-		
-		t.Log("len kvPairs", len(kvPairs))
-		
-		isSorted := IsSorted(kvPairs)
-		if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
+		t.Log("total elements returned on iterate:", totalElements)
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {
-		first, second, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
-		if randomErr != nil { t.Error("error generating random min max") }
+		totalElements := uint64(0)
 
-		var start, end []byte
-		switch {
-			case bytes.Compare(stkeyValPairs[first].Key, stkeyValPairs[second].Key) == 1:
-				start = stkeyValPairs[second].Key
-				end = stkeyValPairs[first].Key
-			default:
-				start = stkeyValPairs[first].Key
-				end = stkeyValPairs[second].Key
+		for range make([]int, NUM_RANGE_GO_ROUTINES) {
+			first, second, randomErr := TwoRandomDistinctValues(0, INPUT_SIZE)
+			if randomErr != nil { t.Error("error generating random min max") }
+
+			var start, end []byte
+			switch {
+				case bytes.Compare(stkeyValPairs[first].Key, stkeyValPairs[second].Key) == 1:
+					start = stkeyValPairs[second].Key
+					end = stkeyValPairs[first].Key
+				default:
+					start = stkeyValPairs[first].Key
+					end = stkeyValPairs[second].Key
+			}
+
+			var kvPairs []*mari.KeyValuePair
+			rangeErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
+				var rangeTxErr error
+				kvPairs, rangeTxErr = tx.Range(start, end, nil)
+				if rangeTxErr != nil { return rangeTxErr }
+
+				return nil
+			})
+
+			if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
+			
+			atomic.AddUint64(&totalElements, uint64(len(kvPairs)))
+
+			isSorted := IsSorted(kvPairs)
+			if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
 		}
 
-		var kvPairs []*mari.KeyValuePair
-		rangeErr := singleThreadTestMap.ReadTx(func(tx *mari.MariTx) error {
-			var rangeTxErr error
-			kvPairs, rangeTxErr = tx.Range(start, end, nil)
-			if rangeTxErr != nil { return rangeTxErr }
-
-			return nil
-		})
-
-		if rangeErr != nil { t.Errorf("error on mari get: %s", rangeErr.Error()) }
-		
-		t.Log("len kvPairs", len(kvPairs))
-		
-		isSorted := IsSorted(kvPairs)
-		if ! isSorted { t.Errorf("key value pairs are not in sorted order: %t", isSorted) }
+		t.Log("total elements returned on range:", totalElements)
 	})
 
 	t.Run("Test Delete Operations", func(t *testing.T) {

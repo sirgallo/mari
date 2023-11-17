@@ -176,7 +176,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 
 		iterWG.Wait()
 
-		t.Log("total elements returned:", totalElements)
+		t.Log("total elements returned on iterate:", totalElements)
 	})
 
 	t.Run("Test Range Operation", func(t *testing.T) {
@@ -220,7 +220,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 		
 		rangeWG.Wait()
 
-		t.Log("total elements returned:", totalElements)
+		t.Log("total elements returned on range:", totalElements)
 	})
 
 	t.Run("Test Delete Operations", func(t *testing.T) {
