@@ -12,7 +12,7 @@
 
 `mari` is a simple, embedded key-value store that utilzes a memory mapped file to back the contents of the data, implemented purely in `Go`. This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
 
-Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free, so multiple writers and readers can operate on the data in parallel, utilizing a form of `MVCC`. However, note that due to contention on writes, write performance may degrade as more writers attempt to write the memory map due to the nature of retries on atomic operations, while read performance will increase as more readers are added, almost logarithmically as thread count increases. Writes that succeed are immediately flushed to disk to preserve data integrity. 
+Data is stored in a concurrent ordered array mapped trie that utilizes versioning and is serialized to an append-only data structure containing all versions within the store. Concurrent operations are lock free, so multiple writers and readers can operate on the data in parallel, utilizing a form of `MVCC`. Successful writes are immediately flushed to disk to preserve data integrity. 
 
 Every operation on `mari` is a transaction. Transactions can be either read only (`ReadTx`) or read-write (`UpdateTx`). Write operations will only modify the current version supplied in the transaction and will be isolated from updates to the data. Transforms can be created for read operations to mutate results before being returned to the user. This can be useful for situations where data pre-processing is required. For more information on transactions, check out [Transactions](./docs/Transactions.md).
 
@@ -85,6 +85,7 @@ func main() {
 go test -v ./tests
 ```
 
+Tests are explained further in depth here [Tests](./docs/Tests.md)
 
 ## godoc
 
@@ -120,5 +121,7 @@ The `mmap` function utilizes `golang.org/x/sys/unix`, so the mmap functionality 
 [Concepts](./docs/Concepts.md)
 
 [NodePool](./docs/NodePool.md)
+
+[Tests](./docs/Tests.md)
 
 [Transactions](./docs/Transactions.md)
