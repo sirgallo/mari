@@ -150,7 +150,6 @@ func (mariInst *Mari) swapTempFileWithMari(compact *MariCompaction) error {
 	currFileName := mariInst.file.Name()
 	tempFileName := compact.tempFile.Name()
 	swapFileName := mariInst.file.Name() + "swap"
-	vFileName := mariInst.versionIndex.Name()
 
 	closeErr := mariInst.Close()
 	if closeErr != nil { return closeErr }
@@ -168,25 +167,13 @@ func (mariInst *Mari) swapTempFileWithMari(compact *MariCompaction) error {
 	os.Rename(tempFileName, currFileName)
 
 	os.Remove(swapFileName)
-	os.Remove(vFileName)
 
 	flag := os.O_RDWR | os.O_CREATE | os.O_APPEND
 	
-	var openFileErr, openVIdxErr error
-
+	var openFileErr error
 	mariInst.file, openFileErr = os.OpenFile(currFileName, flag, 0600)
 	if openFileErr != nil { return openFileErr }
 
-	mariInst.versionIndex, openVIdxErr = os.OpenFile(vFileName, flag, 0600)
-	if openVIdxErr != nil { return openVIdxErr }
-
-	truncateErr := mariInst.versionIndex.Truncate(int64(DefaultPageSize) * 8 * 1000)
-	if truncateErr != nil { return truncateErr }
-
-	mmapVIdxErr := mariInst.mMapVIdx()
-	if mmapVIdxErr != nil { return mmapVIdxErr }
-
-	mariInst.storeStartOffset(0, InitRootOffset)
 
 	mmapErr := mariInst.mMap()
 	if mmapErr != nil { return mmapErr }

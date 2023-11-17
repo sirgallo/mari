@@ -8,13 +8,70 @@ Due to the design decision to use an append only memory map, there are a couple 
 
 ## Solution
 
-A compaction strategy is implemented, where after a certain number of versions, a compaction operation is employed.
+A compaction strategy is implemented, where when triggered, will create a snapshot of the current state of the `mari` instance. 
 
-A separate go routine runs the compaction strategy, and on signal, acquires the write lock, blocking all subsequent reads and writes. It then opens a temporary memory mapped file and recursively traverses the branches of the trie for the current root version. When the end of a branch is reached, the node is serialized directly to the temporary memory map at the computed offset, and then traverses back up the tree, serializing each parent node to the memory map until the root is reached. This bypasses the need to build the entire structure in memory and should scale reasonably well for large datasets. Once the nodes are completely serialized, the original memory mapped file is removed and the new memory mapped file is swapped in and all operations can continue. 
+A separate go routine runs compaction, and on signal, acquires the write lock, blocking all subsequent reads and writes. A tempory memory mapped file is created and dynamically resized as new elements are appended
 
-A benefit of compaction is that there will no longer be duplicated nodes for each version, reducing overall size of the structure and reducing the space that an operation may need to travel along the memory map to find a node. For iterators and range operations, nodes will be more localized as well reducing the need to load and evict data from the system cache.
+The overall time complexity is essentially `O(n)`, where n is the number of nodes that are being copied in the snapshot. The operation, which is essentially a cursor, begins at the root of the trie and for each child in the node's child array, scans from least ordered to greatest ordered. As the cursor traverses each level, the next start offset for each node is computed. Once no child nodes are found, the offset is applied and the child is serialized and placed directly at the computed offset in the new memory mapped based off of the new root offset. Then, the operation travels back up the branch, serializing each node as it passes back up to the root, with the end offset of each child being serialized as a pointer into the parent node. The serialized, flattened structure will look as the following:
+```
+                                  root
+level 1                 node 0   node 1    node 2
+level 2           node 0    node 1
+level 3      node 0 node 1 node 2 node 3
+
+root | level 1 node 0 | level 2 node 0 | level 3 node 0 | level 3 node 1 | level 2 node 1 | level 3 node 2 | level 3 node 3 | level 1 node 1 | level 1 node 2
+
+```
+
+A benefit of compaction is that there will no longer be duplicated paths for different version, reducing overall size of the structure and reducing the space that an operation may need to travel along the memory map to find a node. For iterators and range operations, nodes will be more localized as well reducing the need to load and evict data from the system cache.
 
 
-## Notes
+## Custom Compaction Triggers
 
-Additionally, a separate memory mapped file is kept for version indexes. Each version index contains the offset to that particular root. On compaction, the index is reset and the version is set back to 0. The version index can be utilized to query previously created versions within `mari`
+A custom compact trigger can be passed in the mari options when first initializing the instance. The function has the following signature:
+```go
+compactTrigger := func(metaData *mari.MariMetaData) bool
+```
+
+When truthy value is returned, the compact trigger will attempt to signal the compaction go routine. If a process is already compacting the instance, the operation skips. Once the signal has been sent to the channel, the operation returns without writing to the instance and waits until the compaction process is complete to continue.
+
+If a compaction strategy is not defined, then a default is used, where the instance will compact based on when a certain number of versions has been written.
+
+
+## Usage
+
+```go
+package main
+
+import "os"
+import "path/filepath"
+
+import "github.com/sirgallo/mari"
+
+
+const FILENAME = "<your-file-name>"
+
+
+func main() {
+  homedir, homedirErr := os.UserHomeDir()
+  if homedirErr != nil { panic(homedirErr.Error()) }
+  
+  compactTrigger := func(metaData *mari.MariMetaData) bool {
+    return metaData.version >= 1000000
+  }
+
+  opts := mari.MariOpts{ 
+    Filepath: filepath,
+    FileName: FILENAME,
+    NodePoolSize: int64(1000000),
+    CompactTrigger: compactTrigger,
+  }
+
+  mariInst, openErr := mari.Open(opts)
+  if openErr != nil { panic(openErr.Error()) }
+```
+
+
+## How about batching writes?
+
+When writes are batched in transactions, not just a single path is copied and serialized, but the structure for the entire insert set is built in memory, where all paths are copied onto the same version. When serialized, these batched writes mimic the same above structure. Due to this, batch writes are much more space efficient than single writes and reduce duplicate path copies with different versions in the memory map, so it is suggested that writes should be batched as transactions over single point inserts.

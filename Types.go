@@ -17,8 +17,8 @@ type MariOpts struct {
 	FileName string
 	// NodePoolSize: the total number of pre-allocated nodes to create in the node pool
 	NodePoolSize int64
-	// CompactAtVersion: the version at which the compaction operation should occur
-	CompactAtVersion *uint64
+	// CompactionTrigger: the custom compaction trigger function
+	CompactTrigger *MariCompactionTrigger
 }
 
 // MariMetaData contains information related to where the root is located in the mem map and the version.
@@ -79,14 +79,10 @@ type Mari struct {
 	filepath string
 	// file: the Mari file
 	file *os.File
-	// versionIndex: a memory mapped file that stores the version offsets
-	versionIndex *os.File
 	// opened: flag indicating if the file has been opened
 	opened bool
 	// data: the memory mapped file as a byte slice
 	data atomic.Value
-	// vIdx: the memory mapped file for the version index
-	vIdx atomic.Value
 	// isResizing: atomic flag to determine if the mem map is being resized or not
 	isResizing uint32
 	// signalResize: send a signal to the resize go routine with the offset for resizing
@@ -100,7 +96,7 @@ type Mari struct {
 	// NodePool: the sync.Pool for recycling nodes so nodes are not constantly allocated/deallocated
 	nodePool *MariNodePool
 	// compactAtVersion: the max version the root can be before being compacted
-	compactAtVersion uint64
+	compactTrigger MariCompactionTrigger
 }
 
 // MariNodePool contains pre-allocated MariINodes/MariLNodes to improve performance so go garbage collection doesn't handle allocating/deallocating nodes on every op
@@ -115,17 +111,6 @@ type MariNodePool struct {
 	lNodePool *sync.Pool
 }
 
-// MariOpTransform is the function signature for transform functions, which modify results
-type MariOpTransform = func(kvPair *KeyValuePair) *KeyValuePair
-
-// MariRangeOpts contains options for iteration and range functions
-type MariRangeOpts struct {
-	// MinVersion: the min version to return when performing the scan
-	MinVersion *uint64
-	// Transform: the transform function
-	Transform *MariOpTransform
-}
-
 // MariTx represents a transaction on the store
 type MariTx struct {
 	// store: the mari instance to perform the transaction on
@@ -135,6 +120,9 @@ type MariTx struct {
 	// isWrite: determines whether the transaction is read only or read-write
 	isWrite bool
 }
+
+// MariaCompactionStrategy is the function signature for custom compaction trigger
+type MariCompactionTrigger = func(metaData *MariMetaData) bool
 
 // MariCompaction represents the compaction strategy for removing unused versions
 type MariCompaction struct {
@@ -146,11 +134,22 @@ type MariCompaction struct {
 	compactedVersion uint64
 }
 
+// MariOpTransform is the function signature for transform functions, which modify results
+type MariOpTransform = func(kvPair *KeyValuePair) *KeyValuePair
+
+// MariRangeOpts contains options for iteration and range functions
+type MariRangeOpts struct {
+	// MinVersion: the min version to return when performing the scan
+	MinVersion *uint64
+	// Transform: the transform function
+	Transform *MariOpTransform
+}
+
 // DefaultPageSize is the default page size set by the underlying OS. Usually will be 4KiB
 var DefaultPageSize = os.Getpagesize()
 
 const VersionIndexFileName = "mari_version_index"
-const MaxCompactVersion = 2000000
+const MaxCompactVersion = 1000000
 
 const (
 	// Index of Mari Version in serialized metadata

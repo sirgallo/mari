@@ -19,12 +19,10 @@ func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testst" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "teststtemp"))
 
-	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
 		Filepath: os.TempDir(),
 		FileName: "testst",
 		NodePoolSize: NODEPOOL_SIZE,
-		CompactAtVersion: &compactAtVersion,
 	}
 	
 	singleThreadTestMap, stInitMariErr = mari.Open(opts)
@@ -82,12 +80,10 @@ func TestMariSingleThreadOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		compactAtVersion := uint64(1000000)
 		opts := mari.MariOpts{ 
 			Filepath: os.TempDir(),
 			FileName: "testst",
 			NodePoolSize: NODEPOOL_SIZE,
-			CompactAtVersion: &compactAtVersion,
 		}
 		
 		singleThreadTestMap, stInitMariErr = mari.Open(opts)

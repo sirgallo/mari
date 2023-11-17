@@ -22,6 +22,8 @@ Transforms can be created for read operations to transform results before being 
 
 The `NodePoolSize` option is used for defining the total number of internal/leaf nodes to be pre-allocated and recycled. The use of the nodepool helps to reduce the load on the garbage collector and allows for nodes to be reused instead of destroyed after use.
 
+A compaction strategy can also be implemented as well, which is passed in the instance options using the `CompactTrigger` option. [Compaction](./docs/Compaction.md) is explained further in depth here.
+
 This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
 
 

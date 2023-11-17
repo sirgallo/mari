@@ -14,7 +14,7 @@ var parallelMariInst *mari.Mari
 var initKeyValPairs []KeyVal
 var pKeyValPairs []KeyVal
 var pInitMariErr error
-var pInsertWG, pRetrieveWG sync.WaitGroup
+var pInitWG, pInsertWG, pRetrieveWG sync.WaitGroup
 
 
 func setup() {
@@ -22,12 +22,10 @@ func setup() {
 	os.Remove(filepath.Join(os.TempDir(), "testparallel" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testparalleltemp"))
 
-	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
 		Filepath: os.TempDir(),
 		FileName: "testparallel",
 		NodePoolSize: NODEPOOL_SIZE,
-		CompactAtVersion: &compactAtVersion,
 	}
 	
 	parallelMariInst, pInitMariErr = mari.Open(opts)
@@ -53,16 +51,31 @@ func setup() {
 
 	fmt.Println("seeding parallel test mari")
 
-	for _, kvPair := range initKeyValPairs {
-		putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
-			putTxErr := tx.Put(kvPair.Key, kvPair.Value)
-			if putTxErr != nil { return putTxErr }
+	for i := range make([]int, NUM_WRITER_GO_ROUTINES) {
+		kvPairsForWriter := initKeyValPairs[i * WRITE_CHUNK_SIZE:(i + 1) * WRITE_CHUNK_SIZE]
 
-			return nil
-		})
-		
-		if putErr != nil { panic(putErr.Error()) }
+		chunks, chunkErr := Chunk(kvPairsForWriter, TRANSACTION_CHUNK_SIZE)
+		if chunkErr != nil { panic("error chunking kvPairs sub slice") }
+
+		pInitWG.Add(1)
+		go func () {
+			defer pInitWG.Done()
+			for _, chunk := range chunks {
+				putErr := parallelMariInst.UpdateTx(func(tx *mari.MariTx) error {
+					for _, kvPair := range chunk {
+						putTxErr := tx.Put(kvPair.Key, kvPair.Value)
+						if putTxErr != nil { return putTxErr }
+					}
+
+					return nil
+				})
+				
+				if putErr != nil { panic(putErr.Error()) }
+			}
+		}()
 	}
+
+	pInitWG.Wait()
 
 	fmt.Println("finished seeding parallel test mari")
 }

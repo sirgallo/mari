@@ -22,12 +22,10 @@ func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testtransaction" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testtransactiontemp"))
 
-	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
 		Filepath: os.TempDir(),
 		FileName: "testtransaction",
 		NodePoolSize: NODEPOOL_SIZE,
-		CompactAtVersion: &compactAtVersion,
 	}
 
 	txMariInst, txInitMariErr = mari.Open(opts)
@@ -60,18 +58,18 @@ func TestMariTransactionOperations(t *testing.T) {
 			txInsertWG.Add(1)
 			go func () {
 				defer txInsertWG.Done()
-					for _, chunk := range chunks {
-						putErr := txMariInst.UpdateTx(func(tx *mari.MariTx) error {
-							for _, kvPair := range chunk {
-								putTxErr := tx.Put(kvPair.Key, kvPair.Value)
-								if putTxErr != nil { return putTxErr }
-							}
+				for _, chunk := range chunks {
+					putErr := txMariInst.UpdateTx(func(tx *mari.MariTx) error {
+						for _, kvPair := range chunk {
+							putTxErr := tx.Put(kvPair.Key, kvPair.Value)
+							if putTxErr != nil { return putTxErr }
+						}
 
-							return nil
-						})
-						
-						if putErr != nil { t.Errorf("error on mari put: %s", putErr.Error()) }
-					}
+						return nil
+					})
+					
+					if putErr != nil { t.Errorf("error on mari put: %s", putErr.Error()) }
+				}
 			}()
 		}
 
@@ -110,12 +108,10 @@ func TestMariTransactionOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		compactAtVersion := uint64(1000000)
 		opts := mari.MariOpts{ 
 			Filepath: os.TempDir(),
 			FileName: "testtransaction",
 			NodePoolSize: NODEPOOL_SIZE,
-			CompactAtVersion: &compactAtVersion,
 		}
 		
 		txMariInst, txInitMariErr = mari.Open(opts)

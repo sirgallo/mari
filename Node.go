@@ -93,8 +93,6 @@ func (mariInst *Mari) initRoot() (uint64, error) {
 	endOffset, writeNodeErr := mariInst.writeINodeToMemMap(root)
 	if writeNodeErr != nil { return 0, writeNodeErr }
 
-	mariInst.storeStartOffset(0, 0)
-
 	return endOffset, nil
 }
 

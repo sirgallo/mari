@@ -22,12 +22,10 @@ func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testconcurrent" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testconcurrenttemp"))
 
-	compactAtVersion := uint64(1000000)
 	opts := mari.MariOpts{ 
 		Filepath: os.TempDir(),
 		FileName: "testconcurrent",
 		NodePoolSize: NODEPOOL_SIZE,
-		CompactAtVersion: &compactAtVersion,
 	}
 
 	concurrentMariInst, initMariErr = mari.Open(opts)
@@ -105,12 +103,10 @@ func TestMariConcurrentOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		compactAtVersion := uint64(1000000)
 		opts := mari.MariOpts{ 
 			Filepath: os.TempDir(),
 			FileName: "testconcurrent",
 			NodePoolSize: NODEPOOL_SIZE,
-			CompactAtVersion: &compactAtVersion,
 		}
 		
 		concurrentMariInst, initMariErr = mari.Open(opts)
