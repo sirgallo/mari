@@ -76,7 +76,7 @@ func (mariInst *Mari) iterateRecursive(
 					if iterErr != nil { return nil, iterErr }
 			}
 
-			currPos += 1
+			currPos++
 		}
 	}
 
