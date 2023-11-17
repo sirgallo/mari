@@ -67,9 +67,44 @@ func main() {
 
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }
+  defer mariInst.Close()
+}
 ```
 
 
 ## How about batching writes?
 
 When writes are batched in transactions, not just a single path is copied and serialized, but the structure for the entire insert set is built in memory, where all paths are copied onto the same version. When serialized, these batched writes mimic the same above structure. Due to this, batch writes are much more space efficient than single writes and reduce duplicate path copies with different versions in the memory map, so it is suggested that writes should be batched as transactions over single point inserts.
+
+
+## Note 
+
+The compaction process can be avoided all together if required, and an optional field can be passed in the options when initializing the instance. This will become a truly append only data structure, and all versions will exist, creating a truly immuatable data structure. This can be done with the following:
+```go
+package main
+
+import "os"
+import "path/filepath"
+
+import "github.com/sirgallo/mari"
+
+
+const FILENAME = "<your-file-name>"
+
+
+func main() {
+  homedir, homedirErr := os.UserHomeDir()
+  if homedirErr != nil { panic(homedirErr.Error()) }
+
+  appendOnly := true
+  opts := mari.MariOpts{ 
+    Filepath: homedir,
+    FileName: FILENAME,
+    AppendOnly: &appendOnly
+  }
+
+  mariInst, openErr := mari.Open(opts)
+  if openErr != nil { panic(openErr.Error()) }
+  defer mariInst.Close()
+}
+```
