@@ -16,7 +16,7 @@ type MariOpts struct {
 	// FileName: the name of the file for the mari instance
 	FileName string
 	// NodePoolSize: the total number of pre-allocated nodes to create in the node pool
-	NodePoolSize int64
+	NodePoolSize *int64
 	// CompactionTrigger: the custom compaction trigger function
 	CompactTrigger *MariCompactionTrigger
 }
@@ -148,8 +148,10 @@ type MariRangeOpts struct {
 // DefaultPageSize is the default page size set by the underlying OS. Usually will be 4KiB
 var DefaultPageSize = os.Getpagesize()
 
-const VersionIndexFileName = "mari_version_index"
-const MaxCompactVersion = 1000000
+// DefaultNodePoolSize is the max number of nodes in the node pool, and the pre-allocated node pool size
+const DefaultNodePoolSize = int64(1000000)
+//	MaxCompactVersion is the maximum default version to increment to before the compaction process
+const MaxCompactVersion = uint64(1000000)
 
 const (
 	// Index of Mari Version in serialized metadata

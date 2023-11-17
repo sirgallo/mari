@@ -13,7 +13,6 @@ import "sync/atomic"
 //	Then, the meta data is initialized and written to the first 0-23 bytes in the memory map.
 //	An initial root MariINode will also be written to the memory map as well.
 func Open(opts MariOpts) (*Mari, error) {
-	np := newMariNodePool(opts.NodePoolSize)
 	fileWithFilePath := filepath.Join(opts.Filepath, opts.FileName)
 
 	mariInst := &Mari{
@@ -22,8 +21,12 @@ func Open(opts MariOpts) (*Mari, error) {
 		signalCompactChan: make(chan bool),
 		signalFlushChan: make(chan bool),
 		signalResizeChan: make(chan bool),
-		nodePool: np,
 	}
+
+	if opts.NodePoolSize != nil {
+		nodePoolSize := *opts.NodePoolSize
+		mariInst.nodePool = newMariNodePool(nodePoolSize)
+	} else { mariInst.nodePool = newMariNodePool(DefaultNodePoolSize) }
 
 	if opts.CompactTrigger != nil {	
 		mariInst.compactTrigger = *opts.CompactTrigger

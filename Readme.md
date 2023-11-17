@@ -20,8 +20,6 @@ Ordered iterations and range operations will also perform better than sequential
 
 Transforms can be created for read operations to transform results before being returned to the user. This can be useful for situations where data pre-processing is required.
 
-The `NodePoolSize` option is used for defining the total number of internal/leaf nodes to be pre-allocated and recycled. The use of the nodepool helps to reduce the load on the garbage collector and allows for nodes to be reused instead of destroyed after use.
-
 A compaction strategy can also be implemented as well, which is passed in the instance options using the `CompactTrigger` option. [Compaction](./docs/Compaction.md) is explained further in depth here.
 
 This project is an exploration of memory mapped files and taking a different approach to storing and retrieving data within a database.
@@ -46,22 +44,18 @@ func main() {
   if homedirErr != nil { panic(homedirErr.Error()) }
   
   // set options
-  opts := mari.MariOpts{ 
-    Filepath: filepath,
-    FileName: FILENAME,
-    NodePoolSize: int64(1000000),
-  }
+  opts := mari.MariOpts{ Filepath: filepath, FileName: FILENAME }
 
   // open mari
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }
-
-  key := []byte("hello")
-  value := []byte("world")
+  
+  // close mari
+  defer mariInst.Close()
 
   // put a value in mari
   putErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
-    putTxErr := tx.Put(key, value)
+    putTxErr := tx.Put([]byte("hello"), []byte("world"))
     if putTxErr != nil { return putTxErr }
 
     return nil
@@ -74,7 +68,7 @@ func main() {
   var kvPair *mari.KeyValuePair
   getErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var getTxErr error
-    kvPair, getTxErr = tx.Get(key, nil)
+    kvPair, getTxErr = tx.Get([]byte("hello"), nil)
     if getTxErr != nil { return getTxErr }
 
     return nil
@@ -116,15 +110,13 @@ func main() {
 
   // opts for range + iteration functions
   // can also contain MinVersion for the minimum version
-  rangeOpts := &mari.MariRangeOpts{
-    Transform: &transform
-  }
+  rangeOpts := &mari.MariRangeOpts{ Transform: &transform }
 
   // get a transformed key-value in mari
   var transformedKvPair *mari.KeyValuePair
   getTransformedErr := mariInst.ReadTx(func(tx *mari.MariTx) error {
     var getTxErr error
-    transformedKvPair, getTxErr = tx.Get(key, transform)
+    transformedKvPair, getTxErr = tx.Get([]byte("hello"), transform)
     if getTxErr != nil { return getTxErr }
 
     return nil
@@ -162,11 +154,11 @@ func main() {
     putTxErr := tx.Put([]byte("key1"), []byte("value1"))
     if putTxErr != nil { return putTxErr }
 
-    putTxErr = tx.Put(]byte("key2"), []byte("value2"))
+    putTxErr = tx.Put([]byte("key2"), []byte("value2"))
     if putTxErr != nil { return putTxErr }
 
     var getTxErr error
-    mixedKvPair, getTxErr = tx.Get(key)
+    mixedKvPair, getTxErr = tx.Get([]byte("hello"))
     if getTxErr != nil { return getTxErr }
 
     return nil
@@ -176,7 +168,7 @@ func main() {
 
   // delete a value in mari
   delErr := mariInst.UpdateTx(func(tx *mari.MariTx) error {
-    delTxErr := tx.Delete(key)
+    delTxErr := tx.Delete([]byte("hello"))
     if delTxErr != nil { return delTxErr }
 
     return nil
@@ -187,10 +179,6 @@ func main() {
   // get mari filesize
   fSize, sizeErr := mariInst.FileSize()
   if sizeErr != nil { panic(sizeErr.Error()) }
-
-  // close mari
-  closeErr := mariInst.Close()
-  if closeErr != nil { panic(closeErr.Error()) }
 
   // close mari and remove the associated file
   removeErr := mariInst.Remove()

@@ -19,14 +19,9 @@ var delWG, insertWG, iterWG, rangeWG, retrieveWG sync.WaitGroup
 
 func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testconcurrent"))
-	os.Remove(filepath.Join(os.TempDir(), "testconcurrent" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testconcurrenttemp"))
 
-	opts := mari.MariOpts{ 
-		Filepath: os.TempDir(),
-		FileName: "testconcurrent",
-		NodePoolSize: NODEPOOL_SIZE,
-	}
+	opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testconcurrent" }
 
 	concurrentMariInst, initMariErr = mari.Open(opts)
 	if initMariErr != nil {
@@ -103,11 +98,7 @@ func TestMariConcurrentOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		opts := mari.MariOpts{ 
-			Filepath: os.TempDir(),
-			FileName: "testconcurrent",
-			NodePoolSize: NODEPOOL_SIZE,
-		}
+		opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testconcurrent" }
 		
 		concurrentMariInst, initMariErr = mari.Open(opts)
 		if initMariErr != nil {

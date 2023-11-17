@@ -13,16 +13,11 @@ var mariInst *mari.Mari
 
 func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testmari"))
-	os.Remove(filepath.Join(os.TempDir(), "testmari" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testmaritemp"))
 
 	var initPCMapErr error
 	
-	opts := mari.MariOpts{ 
-		Filepath: os.TempDir(),
-		FileName: "testmari",
-		NodePoolSize: 100,
-	}
+	opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testmari" }
 	
 	mariInst, initPCMapErr = mari.Open(opts)
 	if initPCMapErr != nil { panic(initPCMapErr.Error()) }

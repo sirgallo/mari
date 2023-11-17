@@ -17,14 +17,9 @@ var stInitMariErr error
 
 func init() {	
 	os.Remove(filepath.Join(os.TempDir(), "testst"))
-	os.Remove(filepath.Join(os.TempDir(), "testst" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "teststtemp"))
 
-	opts := mari.MariOpts{ 
-		Filepath: os.TempDir(),
-		FileName: "testst",
-		NodePoolSize: NODEPOOL_SIZE,
-	}
+	opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testst" }
 	
 	singleThreadTestMap, stInitMariErr = mari.Open(opts)
 	if stInitMariErr != nil {
@@ -81,11 +76,7 @@ func TestMariSingleThreadOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		opts := mari.MariOpts{ 
-			Filepath: os.TempDir(),
-			FileName: "testst",
-			NodePoolSize: NODEPOOL_SIZE,
-		}
+		opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testst" }
 		
 		singleThreadTestMap, stInitMariErr = mari.Open(opts)
 		if stInitMariErr != nil {

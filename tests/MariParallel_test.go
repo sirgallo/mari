@@ -19,14 +19,9 @@ var pInitWG, pInsertWG, pRetrieveWG sync.WaitGroup
 
 func setup() {
 	os.Remove(filepath.Join(os.TempDir(), "testparallel"))
-	os.Remove(filepath.Join(os.TempDir(), "testparallel" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testparalleltemp"))
 
-	opts := mari.MariOpts{ 
-		Filepath: os.TempDir(),
-		FileName: "testparallel",
-		NodePoolSize: NODEPOOL_SIZE,
-	}
+	opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testparallel" }
 	
 	parallelMariInst, pInitMariErr = mari.Open(opts)
 	if pInitMariErr != nil {

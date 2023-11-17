@@ -19,14 +19,9 @@ var txDelWG, txInsertWG, txIterWG, txRetrieveWG sync.WaitGroup
 
 func init() {
 	os.Remove(filepath.Join(os.TempDir(), "testtransaction"))
-	os.Remove(filepath.Join(os.TempDir(), "testtransaction" + mari.VersionIndexFileName))
 	os.Remove(filepath.Join(os.TempDir(), "testtransactiontemp"))
 
-	opts := mari.MariOpts{ 
-		Filepath: os.TempDir(),
-		FileName: "testtransaction",
-		NodePoolSize: NODEPOOL_SIZE,
-	}
+	opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testtransaction" }
 
 	txMariInst, txInitMariErr = mari.Open(opts)
 	if txInitMariErr != nil {
@@ -108,11 +103,7 @@ func TestMariTransactionOperations(t *testing.T) {
 	})
 
 	t.Run("Test Read Operations After Reopen", func(t *testing.T) {
-		opts := mari.MariOpts{ 
-			Filepath: os.TempDir(),
-			FileName: "testtransaction",
-			NodePoolSize: NODEPOOL_SIZE,
-		}
+		opts := mari.MariOpts{ Filepath: os.TempDir(), FileName: "testtransaction" }
 		
 		txMariInst, txInitMariErr = mari.Open(opts)
 		if txInitMariErr != nil {
