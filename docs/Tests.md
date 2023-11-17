@@ -140,7 +140,6 @@ iteration size of 500,000
   PASS: TestMariSingleThreadOperations/Test_Iterate_Operation (1.36s)
   PASS: TestMariSingleThreadOperations/Test_Range_Operation (4.35s)
   PASS: TestMariSingleThreadOperations/Test_Delete_Operations (63.34s)
-  PASS: TestMariSingleThreadOperations/Mari_File_Size (0.00s)
 
 10,000,000 kv pairs:
   PASS: TestMariSingleThreadOperations/Test_Write_Operations (180.41s)
