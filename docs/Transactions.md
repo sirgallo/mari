@@ -101,7 +101,6 @@ The `MinVersion` is the minimum version to return from the operation. It will de
 package main
 
 import "os"
-import "path/filepath"
 
 import "github.com/sirgallo/mari"
 
