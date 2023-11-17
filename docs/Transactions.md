@@ -44,18 +44,18 @@ the `mari.MariTx` object, when a transaction is initiated, includes:
 
 However, this is all hidden from the end user, as the actual transaction is handled in the background, for a level of inversion of control. The thought process is that transactions should be simple to create. On read-write transactions, a mix of reads and writes can be performed and the updated data is only serialized once all operations in the transaction have been completed. Transaction operations are as follows:
 
- 1. tx.Get - get a key-value from the instance if it exists. Nil is returned if non-existant
- 2. tx.Put - put a key-value pair into the instance
- 3. tx.Delete - delete a key-value pair from the instance, if it exists
- 4. tx.Iterate - generate an ordered iteration over a span of elements, from a start key up to a specified number of elements
- 5. tx.Range - perform a range operation to find all elements between a start key and an end key
+  1. tx.Get - get a key-value from the instance if it exists. Nil is returned if non-existant
+  2. tx.Put - put a key-value pair into the instance
+  3. tx.Delete - delete a key-value pair from the instance, if it exists
+  4. tx.Iterate - generate an ordered iteration over a span of elements, from a start key up to a specified number of elements
+  5. tx.Range - perform a range operation to find all elements between a start key and an end key
 
 If a `Put` or `Delete` is attempted in a read only transaction, an error will be thrown indicating that the user should be using a read-write transaction
 
 As mentioned above, there are two variants of transactions, on the `mari` instance itself:
 
   1. ReadTx - perform a read only transaction, which takes in a transaction function containing one or multiple transaction operations
-  2. UpateTx - perform a read-write transaction, which again takes in a transaction function
+  2. UpdateTx - perform a read-write transaction, which again takes in a transaction function
 
 
 ## Transforms
@@ -112,7 +112,7 @@ func main() {
   homedir, homedirErr := os.UserHomeDir()
   if homedirErr != nil { panic(homedirErr.Error()) }
 
-  opts := mari.MariOpts{ Filepath: filepath, FileName: FILENAME }
+  opts := mari.MariOpts{ Filepath: homedir, FileName: FILENAME }
 
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }

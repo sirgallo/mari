@@ -40,7 +40,7 @@ func main() {
   homedir, homedirErr := os.UserHomeDir()
   if homedirErr != nil { panic(homedirErr.Error()) }
   
-  opts := mari.MariOpts{ Filepath: filepath, FileName: FILENAME }
+  opts := mari.MariOpts{ Filepath: homedir, FileName: FILENAME }
 
   mariInst, openErr := mari.Open(opts)
   if openErr != nil { panic(openErr.Error()) }

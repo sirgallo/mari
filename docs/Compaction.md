@@ -60,10 +60,9 @@ func main() {
   }
 
   opts := mari.MariOpts{ 
-    Filepath: filepath,
+    Filepath: homedir,
     FileName: FILENAME,
-    NodePoolSize: int64(1000000),
-    CompactTrigger: compactTrigger,
+    CompactTrigger: &compactTrigger,
   }
 
   mariInst, openErr := mari.Open(opts)

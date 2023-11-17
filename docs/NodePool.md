@@ -32,7 +32,7 @@ func main() {
   
   nodePoolSize := int64(1000000)
   opts := mari.MariOpts{ 
-    Filepath: filepath,
+    Filepath: homedir,
     FileName: FILENAME,
     NodePoolSize: &nodePoolSize,
   }
